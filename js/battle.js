@@ -1,6 +1,6 @@
 // js/battle.js
 import { Hero } from './entities/hero.js';
-import { Enemy } from './entities/enemy.js';  // Pastikan Enemy diimpor sesuai dengan cara diekspor
+import { Enemy } from './entities/enemy.js';
 
 export default class Battle {
   constructor(grid) {
@@ -14,7 +14,7 @@ export default class Battle {
       new Hero('HeroD', 3, 3, 70, 15)
     ];
 
-    // Inisialisasi 4 enemies dengan posisi yang diinginkan (misalnya, di baris paling bawah)
+    // Inisialisasi 4 enemy dengan posisi yang diinginkan (misalnya, di baris paling bawah)
     this.enemies = [
       new Enemy('Enemy1', 0, 19, 50, 15),
       new Enemy('Enemy2', 1, 19, 60, 18),
@@ -23,20 +23,21 @@ export default class Battle {
     ];
 
     // Properti tambahan untuk manajemen turn dan aksi:
-    this.currentTurn = 'hero'; // Bisa 'hero' atau 'enemy'
-    this.selectedHero = null;  // Menyimpan hero yang saat ini dipilih
-    this.actionMode = 'normal'; // Mode aksi: 'normal', 'selected', atau 'move'
-    this.pendingMove = null;    // Objek untuk menyimpan informasi perpindahan (jika sedang dalam mode move)
+    this.currentTurn = 'hero'; // bisa 'hero' atau 'enemy'
+    this.selectedHero = null;  // menyimpan hero yang saat ini dipilih
+    this.actionMode = 'normal'; // mode aksi: 'normal', 'selected', atau 'move'
+    this.pendingMove = null;    // objek untuk menyimpan informasi perpindahan, misal:
+                                // { hero, originalPosition: {col, row}, newPosition: {col, row} }
   }
 
   update(deltaTime) {
     // Placeholder untuk update logika pertarungan, aksi, dan giliran.
     // Misalnya, jika giliran enemy, Anda bisa mengimplementasikan logika AI di sini.
     if (this.currentTurn === 'enemy') {
-      // Contoh: untuk tiap enemy, jalankan fungsi AI (belum diimplementasikan)
+      // Contoh: jalankan update AI untuk enemy
       // this.enemies.forEach(enemy => enemy.update(deltaTime, this.grid));
     }
-    // Update animasi atau efek tambahan bisa diletakkan di sini.
+    // Update animasi atau efek tambahan bisa ditaruh di sini.
   }
 
   render(ctx, camera) {
@@ -54,13 +55,28 @@ export default class Battle {
       }
     });
 
-    // Render indikator seleksi jika ada hero yang dipilih
+    // Render indikator seleksi hero (misalnya, kotak kuning) jika ada hero yang dipilih
     if (this.selectedHero) {
       const pos = this.grid.getCellPosition(this.selectedHero.col, this.selectedHero.row);
       ctx.save();
-      ctx.strokeStyle = 'yellow';  // Warna indikator seleksi
+      ctx.strokeStyle = 'yellow';
       ctx.lineWidth = 3;
       ctx.strokeRect(pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+      ctx.restore();
+    }
+
+    // Jika dalam mode move dan ada pendingMove, gambar indikator posisi asli hero
+    if (this.actionMode === 'move' && this.pendingMove) {
+      const origPos = this.grid.getCellPosition(
+        this.pendingMove.originalPosition.col,
+        this.pendingMove.originalPosition.row
+      );
+      ctx.save();
+      // Contoh: kotak dashed berwarna hijau untuk menandai posisi awal hero
+      ctx.strokeStyle = 'green';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(origPos.x - camera.x, origPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
       ctx.restore();
     }
   }

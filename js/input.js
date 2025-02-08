@@ -10,7 +10,7 @@ export function handleInput(game) {
   let hasMoved = false;
   const dragThreshold = 5;
 
-  // Helper: cari hero yang berada pada cell tertentu
+  // Helper: mencari hero di cell tertentu
   function getHeroAtCell(col, row) {
     for (let hero of game.battle.heroes) {
       if (hero.col === col && hero.row === row) return hero;
@@ -18,7 +18,7 @@ export function handleInput(game) {
     return null;
   }
 
-  // ================= Mouse Events =================
+  // ================= Mouse Events (Desktop) =================
   game.canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     startX = e.clientX;
@@ -48,42 +48,65 @@ export function handleInput(game) {
       const y = e.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-
+  
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Jika klik pada cell yang sama dengan posisi hero, batal mode move
+        // Jika klik pada cell yang sama dengan posisi preview hero, batalkan mode move
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
+          document.getElementById('confirmMenu').style.display = 'none';
+          // Hapus pendingMove jika ada (opsional, tergantung logika)
+          game.battle.pendingMove = null;
         } else {
-          // Set pending move: simpan posisi awal dan target baru
-          game.battle.pendingMove = {
-            hero: game.battle.selectedHero,
-            originalPosition: { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row },
-            newPosition: { col, row }
-          };
-          // Gerakkan hero secara preview ke posisi baru
+          // Jika belum ada pendingMove, set originalPosition dari hero yang dipilih.
+          if (!game.battle.pendingMove) {
+            game.battle.pendingMove = {
+              hero: game.battle.selectedHero,
+              originalPosition: { 
+                col: game.battle.selectedHero.col, 
+                row: game.battle.selectedHero.row 
+              },
+              newPosition: { col, row }
+            };
+          } else {
+            // Jika pendingMove sudah ada, hanya update newPosition.
+            game.battle.pendingMove.newPosition = { col, row };
+          }
+          // Preview perpindahan: update posisi hero ke posisi target (hanya preview)
           game.battle.selectedHero.col = col;
           game.battle.selectedHero.row = row;
-          // Tampilkan confirm menu
-          const confirmMenu = document.getElementById('confirmMenu');
-          confirmMenu.style.display = 'block';
+          // Tampilkan menu konfirmasi perpindahan
+          document.getElementById('confirmMenu').style.display = 'block';
         }
       } else {
         // Mode normal: cek apakah ada hero di cell yang diklik
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          game.battle.selectedHero = clickedHero;
-          game.battle.actionMode = 'selected';
-          // Tampilkan floating action menu
-          const actionMenu = document.getElementById('actionMenu');
-          actionMenu.style.display = 'block';
+          // Jika hero yang diklik sudah sama dengan hero yang sedang dipilih, toggle deselect
+          if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
+            game.battle.selectedHero = null;
+            game.battle.actionMode = 'normal';
+            document.getElementById('actionMenu').style.display = 'none';
+          } else {
+            // Set hero yang diklik sebagai hero terpilih dan tampilkan action menu
+            game.battle.selectedHero = clickedHero;
+            game.battle.actionMode = 'selected';
+            document.getElementById('actionMenu').style.display = 'block';
+          }
+        } else {
+          // Jika tidak ada hero di cell yang diklik, tutup action menu
+          if (game.battle.actionMode === 'selected') {
+            game.battle.selectedHero = null;
+            game.battle.actionMode = 'normal';
+            document.getElementById('actionMenu').style.display = 'none';
+          }
         }
       }
     }
     isDragging = false;
     hasMoved = false;
-  });
+  });  
 
-  // (Pastikan juga implementasi touch events disesuaikan dengan logika di atas)
+  // ================= Touch Events (Mobile) =================
   game.canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       isDragging = true;
@@ -118,35 +141,55 @@ export function handleInput(game) {
       const y = startY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-      
+  
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
+          document.getElementById('confirmMenu').style.display = 'none';
+          game.battle.pendingMove = null;
         } else {
-          game.battle.pendingMove = {
-            hero: game.battle.selectedHero,
-            originalPosition: { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row },
-            newPosition: { col, row }
-          };
+          if (!game.battle.pendingMove) {
+            game.battle.pendingMove = {
+              hero: game.battle.selectedHero,
+              originalPosition: { 
+                col: game.battle.selectedHero.col, 
+                row: game.battle.selectedHero.row 
+              },
+              newPosition: { col, row }
+            };
+          } else {
+            game.battle.pendingMove.newPosition = { col, row };
+          }
           game.battle.selectedHero.col = col;
           game.battle.selectedHero.row = row;
-          const confirmMenu = document.getElementById('confirmMenu');
-          confirmMenu.style.display = 'block';
+          document.getElementById('confirmMenu').style.display = 'block';
         }
       } else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          game.battle.selectedHero = clickedHero;
-          game.battle.actionMode = 'selected';
-          const actionMenu = document.getElementById('actionMenu');
-          actionMenu.style.display = 'block';
+          if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
+            game.battle.selectedHero = null;
+            game.battle.actionMode = 'normal';
+            document.getElementById('actionMenu').style.display = 'none';
+          } else {
+            game.battle.selectedHero = clickedHero;
+            game.battle.actionMode = 'selected';
+            document.getElementById('actionMenu').style.display = 'block';
+          }
+        } else {
+          if (game.battle.actionMode === 'selected') {
+            game.battle.selectedHero = null;
+            game.battle.actionMode = 'normal';
+            document.getElementById('actionMenu').style.display = 'none';
+          }
         }
       }
     }
     isDragging = false;
     hasMoved = false;
-  });
+  });  
 
+  // Keyboard scrolling (optional)
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;
     if (e.key === 'ArrowDown') {
