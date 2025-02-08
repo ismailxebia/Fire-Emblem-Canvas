@@ -10,6 +10,20 @@
   <!-- Canvas untuk rendering game -->
   <canvas id="gameCanvas"></canvas>
 
+  <!-- Floating action menu untuk hero yang dipilih -->
+  <div id="actionMenu" style="display:none; position: absolute; left: 10px; top: 10px; background: #ddd; padding: 10px; border: 1px solid #aaa;">
+    <button id="btnMove">Move</button>
+    <button id="btnWait">Wait</button>
+    <button id="btnAttack">Attack</button>
+    <button id="btnMagic">Magic</button>
+  </div>
+
+  <!-- Floating confirm menu untuk move -->
+  <div id="confirmMenu" style="display:none; position: absolute; left: 10px; top: 70px; background: #ccc; padding: 10px; border: 1px solid #888;">
+    <button id="btnConfirm">Confirm</button>
+    <button id="btnCancel">Cancel</button>
+  </div>
+
   <!-- Memuat file JavaScript utama -->
   <script type="module" src="js/main.js"></script>
 </body>

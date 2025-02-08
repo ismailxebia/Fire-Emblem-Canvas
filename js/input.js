@@ -1,30 +1,24 @@
 // js/input.js
 export function handleInput(game) {
-  // Fungsi utilitas untuk membatasi nilai offset agar tidak keluar batas
   function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
   }
 
-  // --- Variabel untuk Drag/Click ---
   let isDragging = false;
   let startX = 0;
   let startY = 0;
   let hasMoved = false;
-  const dragThreshold = 5; // batas pergerakan (dalam pixel) untuk membedakan drag dari klik
+  const dragThreshold = 5;
 
-  // Helper untuk menentukan hero yang akan dipindahkan.
-  // Misalnya, kita gunakan hero pertama dari game.battle.heroes jika ada,
-  // atau fallback ke game.hero (jika masih ada).
-  function getSelectedHero() {
-    if (game.battle && game.battle.heroes && game.battle.heroes.length > 0) {
-      return game.battle.heroes[0];
+  // Helper: cari hero yang berada pada cell tertentu
+  function getHeroAtCell(col, row) {
+    for (let hero of game.battle.heroes) {
+      if (hero.col === col && hero.row === row) return hero;
     }
-    return game.hero; // fallback jika belum menggunakan battle
+    return null;
   }
 
-  // ============================
-  // Mouse Events (Desktop)
-  // ============================
+  // ================= Mouse Events =================
   game.canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     startX = e.clientX;
@@ -36,49 +30,60 @@ export function handleInput(game) {
     if (!isDragging) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-
-    // Jika pergerakan melebihi threshold, anggap sebagai drag
     if (!hasMoved && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
       hasMoved = true;
     }
     if (hasMoved) {
-      // Update offset kamera (drag ke kanan = peta bergeser ke kiri, dst.)
       game.camera.x = clamp(game.camera.x - dx, 0, game.grid.stageWidth - game.canvas.width);
       game.camera.y = clamp(game.camera.y - dy, 0, game.grid.stageHeight - game.canvas.height);
-      // Perbarui titik awal untuk pergerakan berikutnya
       startX = e.clientX;
       startY = e.clientY;
     }
   });
 
   game.canvas.addEventListener('mouseup', (e) => {
-    // Jika tidak terjadi drag, anggap sebagai klik untuk memilih grid
     if (!hasMoved) {
       const rect = game.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-      // Gunakan hero yang dipilih (misalnya hero pertama)
-      const selectedHero = getSelectedHero();
-      if (selectedHero) {
-        selectedHero.col = col;
-        selectedHero.row = row;
+
+      if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
+        // Jika klik pada cell yang sama dengan posisi hero, batal mode move
+        if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
+          game.battle.actionMode = 'selected';
+        } else {
+          // Set pending move: simpan posisi awal dan target baru
+          game.battle.pendingMove = {
+            hero: game.battle.selectedHero,
+            originalPosition: { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row },
+            newPosition: { col, row }
+          };
+          // Gerakkan hero secara preview ke posisi baru
+          game.battle.selectedHero.col = col;
+          game.battle.selectedHero.row = row;
+          // Tampilkan confirm menu
+          const confirmMenu = document.getElementById('confirmMenu');
+          confirmMenu.style.display = 'block';
+        }
+      } else {
+        // Mode normal: cek apakah ada hero di cell yang diklik
+        const clickedHero = getHeroAtCell(col, row);
+        if (clickedHero) {
+          game.battle.selectedHero = clickedHero;
+          game.battle.actionMode = 'selected';
+          // Tampilkan floating action menu
+          const actionMenu = document.getElementById('actionMenu');
+          actionMenu.style.display = 'block';
+        }
       }
     }
     isDragging = false;
     hasMoved = false;
   });
 
-  // Jika pointer keluar dari canvas, batalkan drag
-  game.canvas.addEventListener('mouseleave', () => {
-    isDragging = false;
-    hasMoved = false;
-  });
-
-  // ============================
-  // Touch Events (Mobile)
-  // ============================
+  // (Pastikan juga implementasi touch events disesuaikan dengan logika di atas)
   game.canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       isDragging = true;
@@ -94,7 +99,6 @@ export function handleInput(game) {
     const currentY = e.touches[0].clientY;
     const dx = currentX - startX;
     const dy = currentY - startY;
-
     if (!hasMoved && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
       hasMoved = true;
     }
@@ -104,31 +108,45 @@ export function handleInput(game) {
       startX = currentX;
       startY = currentY;
     }
-    // Mencegah scroll bawaan browser
     e.preventDefault();
   }, { passive: false });
 
   game.canvas.addEventListener('touchend', (e) => {
-    // Jika tidak terjadi drag, anggap sebagai tap untuk memilih grid
     if (!hasMoved) {
       const rect = game.canvas.getBoundingClientRect();
       const x = startX - rect.left;
       const y = startY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-      const selectedHero = getSelectedHero();
-      if (selectedHero) {
-        selectedHero.col = col;
-        selectedHero.row = row;
+      
+      if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
+        if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
+          game.battle.actionMode = 'selected';
+        } else {
+          game.battle.pendingMove = {
+            hero: game.battle.selectedHero,
+            originalPosition: { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row },
+            newPosition: { col, row }
+          };
+          game.battle.selectedHero.col = col;
+          game.battle.selectedHero.row = row;
+          const confirmMenu = document.getElementById('confirmMenu');
+          confirmMenu.style.display = 'block';
+        }
+      } else {
+        const clickedHero = getHeroAtCell(col, row);
+        if (clickedHero) {
+          game.battle.selectedHero = clickedHero;
+          game.battle.actionMode = 'selected';
+          const actionMenu = document.getElementById('actionMenu');
+          actionMenu.style.display = 'block';
+        }
       }
     }
     isDragging = false;
     hasMoved = false;
   });
 
-  // ============================
-  // Keyboard Scrolling (Opsional)
-  // ============================
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;
     if (e.key === 'ArrowDown') {
