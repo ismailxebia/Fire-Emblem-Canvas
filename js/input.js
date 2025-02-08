@@ -135,6 +135,7 @@ export function handleInput(game) {
   }, { passive: false });
 
   game.canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
     if (!hasMoved) {
       const rect = game.canvas.getBoundingClientRect();
       const x = startX - rect.left;
