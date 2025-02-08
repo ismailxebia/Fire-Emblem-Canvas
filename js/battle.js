@@ -22,6 +22,13 @@ export default class Battle {
             new Enemy('Enemy4', 3, 19, 80, 20)
         ];
 
+        // Sinkronkan posisi pixel untuk masing-masing hero
+        this.heroes.forEach(hero => {
+            const pos = this.grid.getCellPosition(hero.col, hero.row);
+            hero.pixelX = pos.x;
+            hero.pixelY = pos.y;
+        });
+
         // Properti tambahan untuk state pertarungan
         this.currentTurn = 'hero'; // 'hero' atau 'enemy'
         this.selectedHero = null;  // Hero yang dipilih
@@ -30,8 +37,14 @@ export default class Battle {
     }
 
     update(deltaTime) {
-        // Update logika pertarungan (placeholder)
-    }
+        // Update setiap hero (termasuk animasi perpindahan)
+        this.heroes.forEach(hero => {
+          if (hero.health > 0) {
+            hero.update(deltaTime, this.grid);
+          }
+        });
+        // Update logika enemy jika ada...
+      }
 
     render(ctx, camera) {
         // Render grid, heroes, dan enemy (sudah ada)

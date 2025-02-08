@@ -48,15 +48,15 @@ export function handleInput(game) {
       const y = e.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-
+  
       // Jika dalam mode move dan hero dipilih
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Cek apakah cell yang diklik berada dalam jangkauan
+        // Jika pendingMove sudah ada, periksa apakah target cell berada dalam jangkauan
         if (game.battle.pendingMove) {
           const origin = game.battle.pendingMove.originalPosition;
           const distance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
           if (distance > game.battle.selectedHero.movementRange) {
-            // Jika di luar jangkauan, abaikan klik
+            // Jika target di luar jangkauan, abaikan klik
             return;
           }
         }
@@ -66,7 +66,7 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
         } else {
-          // Jika belum ada pendingMove, set originalPosition hero satu kali
+          // Jika pendingMove belum ada, simpan originalPosition hero sekali
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
               hero: game.battle.selectedHero,
@@ -77,12 +77,12 @@ export function handleInput(game) {
               newPosition: { col, row }
             };
           } else {
-            // Jika sudah ada, update hanya newPosition
+            // Jika sudah ada, perbarui hanya newPosition
             game.battle.pendingMove.newPosition = { col, row };
           }
-          // Tampilkan preview perpindahan
-          game.battle.selectedHero.col = col;
-          game.battle.selectedHero.row = row;
+          // Panggil animasi perpindahan; hero akan bergerak smooth ke posisi target
+          game.battle.selectedHero.startMove(game.grid, col, row);
+          // Tampilkan floating confirm menu untuk mengonfirmasi perpindahan
           document.getElementById('confirmMenu').style.display = 'block';
         }
       }
@@ -90,18 +90,19 @@ export function handleInput(game) {
       else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          // Jika hero yang diklik sudah sama dengan hero yang dipilih, toggle deselect
+          // Jika hero yang diklik sudah sama dengan hero yang sedang dipilih, toggle deselect
           if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
           } else {
+            // Pilih hero yang diklik dan tampilkan floating action menu
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
             document.getElementById('actionMenu').style.display = 'block';
           }
         } else {
-          // Jika klik di cell kosong dan sedang dalam mode selected, batal seleksi
+          // Jika klik pada cell kosong dan sedang dalam mode selected, batal seleksi
           if (game.battle.actionMode === 'selected') {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
@@ -112,7 +113,7 @@ export function handleInput(game) {
     }
     isDragging = false;
     hasMoved = false;
-  });
+  });  
 
   // ================= Touch Events (Mobile) =================
   game.canvas.addEventListener('touchstart', (e) => {
@@ -150,9 +151,8 @@ export function handleInput(game) {
       const y = startY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-
+  
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Cek apakah cell yang diklik berada dalam jangkauan
         if (game.battle.pendingMove) {
           const origin = game.battle.pendingMove.originalPosition;
           const distance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
@@ -177,11 +177,11 @@ export function handleInput(game) {
           } else {
             game.battle.pendingMove.newPosition = { col, row };
           }
-          game.battle.selectedHero.col = col;
-          game.battle.selectedHero.row = row;
+          game.battle.selectedHero.startMove(game.grid, col, row);
           document.getElementById('confirmMenu').style.display = 'block';
         }
       } else {
+        // Proses seleksi/deseleksi hero seperti sebelumnya
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
           if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
@@ -204,7 +204,7 @@ export function handleInput(game) {
     }
     isDragging = false;
     hasMoved = false;
-  });
+  });  
 
   // ================= Keyboard Scrolling (Optional) =================
   window.addEventListener('keydown', (e) => {
