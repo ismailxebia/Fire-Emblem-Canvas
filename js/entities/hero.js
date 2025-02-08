@@ -1,27 +1,21 @@
 // js/entities/hero.js
 export class Hero {
-  constructor(name, col, row, health = 100, attack = 20) {
+  constructor(name, col, row, health, attack, movementRange = 3) {
     this.name = name;
-    this.col = col;  // Kolom (x)
-    this.row = row;  // Baris (y)
+    this.col = col;
+    this.row = row;
     this.health = health;
     this.attack = attack;
-    // Properti lain bisa ditambahkan di sini (misalnya sprite, movementRange, dsb.)
+    this.movementRange = movementRange; // Sekarang movementRange sudah terdefinisi, defaultnya 3
   }
 
   update(deltaTime, grid) {
-    // Logika update (misalnya animasi atau pergerakan) bisa ditambahkan di sini.
+    // Logika update untuk hero (misalnya animasi atau pergerakan) dapat diimplementasikan di sini.
   }
 
-  /**
-   * Render hero pada canvas.
-   * @param {CanvasRenderingContext2D} ctx - Context canvas.
-   * @param {Grid} grid - Instance grid untuk mendapatkan posisi cell.
-   * @param {object} camera - Objek kamera { x, y }.
-   */
   render(ctx, grid, camera) {
     const pos = grid.getCellPosition(this.col, this.row);
-    ctx.fillStyle = 'blue';  // Warna hero
+    ctx.fillStyle = 'blue';
     ctx.fillRect(pos.x - camera.x, pos.y - camera.y, grid.tileSize, grid.tileSize);
   }
 }
