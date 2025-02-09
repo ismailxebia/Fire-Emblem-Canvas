@@ -9,6 +9,12 @@ export default class Grid {
     this.cols = cols;
     this.rows = rows;
     this.updateDimensions(canvasWidth);
+    // Tambahkan obstacle yang diinginkan
+    // Contoh: obstacle di cell (5,4) dan (8,4)
+    this.obstacles = [
+      { col: 1, row: 1 },
+      { col: 2, row: 1 }
+    ];
   }
 
   /**
@@ -17,21 +23,22 @@ export default class Grid {
    */
   updateDimensions(canvasWidth) {
     // Gunakan pembagian tepat agar grid menyesuaikan lebar canvas
-    this.tileSize = canvasWidth / this.cols; 
+    this.tileSize = canvasWidth / this.cols;
     // Pastikan stageWidth didasarkan pada tileSize * jumlah kolom
     this.stageWidth = this.tileSize * this.cols;
     this.stageHeight = this.rows * this.tileSize;
   }
 
   /**
-   * Menggambar grid lines dengan offset kamera (jika ada).
+   * Menggambar grid lines dan obstacle dengan offset kamera (jika ada).
    * @param {CanvasRenderingContext2D} ctx - Context canvas.
    * @param {object} camera - Objek kamera { x, y }.
    */
   render(ctx, camera) {
+    // Gambar grid lines
     ctx.strokeStyle = 'rgb(235, 235, 235)';
-
-    // Gambar garis vertikal (dari 0 hingga cols, sehingga menghasilkan cols+1 garis)
+    ctx.lineWidth = 1;
+    // Garis vertikal
     for (let i = 0; i <= this.cols; i++) {
       const x = i * this.tileSize - camera.x;
       ctx.beginPath();
@@ -39,14 +46,22 @@ export default class Grid {
       ctx.lineTo(x, this.stageHeight - camera.y);
       ctx.stroke();
     }
-
-    // Gambar garis horizontal
+    // Garis horizontal
     for (let j = 0; j <= this.rows; j++) {
       const y = j * this.tileSize - camera.y;
       ctx.beginPath();
       ctx.moveTo(0 - camera.x, y);
       ctx.lineTo(this.stageWidth - camera.x, y);
       ctx.stroke();
+    }
+
+    // Gambar obstacle (jika ada) agar terlihat di atas grid
+    if (this.obstacles) {
+      ctx.fillStyle = 'rgba(50, 50, 50, 0.7)'; // Warna gelap untuk obstacle
+      this.obstacles.forEach(obstacle => {
+        const pos = this.getCellPosition(obstacle.col, obstacle.row);
+        ctx.fillRect(pos.x - camera.x, pos.y - camera.y, this.tileSize, this.tileSize);
+      });
     }
   }
 

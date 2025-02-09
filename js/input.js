@@ -49,24 +49,34 @@ export function handleInput(game) {
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
   
-      // Jika dalam mode move dan hero dipilih
+      // Mode MOVE: jika hero sudah dipilih dan mode aksi adalah 'move'
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Jika pendingMove sudah ada, periksa apakah target cell berada dalam jangkauan
-        if (game.battle.pendingMove) {
-          const origin = game.battle.pendingMove.originalPosition;
-          const distance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
-          if (distance > game.battle.selectedHero.movementRange) {
-            // Jika target di luar jangkauan, abaikan klik
-            return;
-          }
+        // Ambil titik awal dari pendingMove (jika sudah ada) atau dari posisi hero saat ini
+        const origin = game.battle.pendingMove
+          ? game.battle.pendingMove.originalPosition
+          : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
+  
+        // Periksa jarak Manhattan dari origin ke target
+        const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
+        if (manhattanDistance > game.battle.selectedHero.movementRange) {
+          // Target di luar jangkauan kasar, abaikan klik
+          return;
         }
-        // Jika klik pada cell yang sama dengan posisi preview hero, batal mode move
+  
+        // Gunakan fungsi pathfinding melalui game.battle.findPath untuk memastikan cell target dapat dijangkau
+        const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
+        if (path.length === 0) {
+          // Jika tidak ada jalur valid (misalnya karena obstacle menghalangi), abaikan klik
+          return;
+        }
+  
+        // Jika klik pada cell yang sama dengan posisi preview hero, batalkan mode move
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
         } else {
-          // Jika pendingMove belum ada, simpan originalPosition hero sekali
+          // Jika pendingMove belum ada, simpan originalPosition hero sekali; jika sudah ada, update newPosition
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
               hero: game.battle.selectedHero,
@@ -77,32 +87,28 @@ export function handleInput(game) {
               newPosition: { col, row }
             };
           } else {
-            // Jika sudah ada, perbarui hanya newPosition
             game.battle.pendingMove.newPosition = { col, row };
           }
-          // Panggil animasi perpindahan; hero akan bergerak smooth ke posisi target
+          // Mulai animasi perpindahan secara smooth ke target cell
           game.battle.selectedHero.startMove(game.grid, col, row);
-          // Tampilkan floating confirm menu untuk mengonfirmasi perpindahan
+          // Tampilkan floating confirm menu untuk konfirmasi perpindahan
           document.getElementById('confirmMenu').style.display = 'block';
         }
       }
-      // Mode normal (tidak dalam mode move): proses seleksi hero
+      // Mode NORMAL: proses seleksi/deseleksi hero
       else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          // Jika hero yang diklik sudah sama dengan hero yang sedang dipilih, toggle deselect
           if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
           } else {
-            // Pilih hero yang diklik dan tampilkan floating action menu
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
             document.getElementById('actionMenu').style.display = 'block';
           }
         } else {
-          // Jika klik pada cell kosong dan sedang dalam mode selected, batal seleksi
           if (game.battle.actionMode === 'selected') {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
