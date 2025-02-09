@@ -151,21 +151,25 @@ export function handleInput(game) {
 
   game.canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
-    if (!hasMoved) {
+    // Gunakan e.changedTouches[0] untuk mendapatkan posisi sentuhan terakhir
+    if (!hasMoved && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
       const rect = game.canvas.getBoundingClientRect();
-      const x = startX - rect.left;
-      const y = startY - rect.top;
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-  
+      
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        if (game.battle.pendingMove) {
-          const origin = game.battle.pendingMove.originalPosition;
-          const distance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
-          if (distance > game.battle.selectedHero.movementRange) {
-            return;
-          }
-        }
+        const origin = game.battle.pendingMove
+          ? game.battle.pendingMove.originalPosition
+          : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
+        const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
+        if (manhattanDistance > game.battle.selectedHero.movementRange) return;
+        
+        const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
+        if (path.length === 0) return;
+        
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
@@ -187,7 +191,6 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'block';
         }
       } else {
-        // Proses seleksi/deseleksi hero seperti sebelumnya
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
           if (game.battle.selectedHero && game.battle.selectedHero === clickedHero) {
