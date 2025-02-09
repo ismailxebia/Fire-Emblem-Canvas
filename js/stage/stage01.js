@@ -10,7 +10,7 @@
  */
 export function loadStageData() {
     return {
-      backgroundUrl: "https://ik.imagekit.io/ij05ikv7z/Hero/background%20New.png", // Contoh URL background
+      backgroundUrl: "https://ik.imagekit.io/ij05ikv7z/Hero/HD%20Back.png", // Contoh URL background
       heroPositions: [
         { col: 2, row: 2 },
         { col: 3, row: 2 },

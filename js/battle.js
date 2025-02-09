@@ -134,68 +134,87 @@ export default class Battle {
   }
 
   render(ctx, camera) {
-    // --- Render Path Line dengan rounded corner, gradient, dan transparansi ---
-    if (this.actionMode === 'move' && this.pendingMove && this.pendingMove.newPosition) {
+    // --- Render Hex Range Overlay dan Path Line (jika mode move) ---
+    if (this.actionMode === 'move' && this.pendingMove) {
       const origin = this.pendingMove.originalPosition;
-      const goal = this.pendingMove.newPosition;
-      const maxRange = this.pendingMove.hero.movementRange;
-      // Ambil jalur dengan findPath
-      const path = this.findPath(this.grid, origin, goal, maxRange);
-      // Tambahkan pengecekan: jika jumlah langkah (path.length - 1) melebihi movementRange, anggap unreachable
-      if (path.length === 0 || (path.length - 1) > maxRange) {
-        // Gambarkan cell target dengan overlay merah transparan
-        const targetPos = this.grid.getCellPosition(goal.col, goal.row);
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,0,0,0.4)';
-        ctx.fillRect(targetPos.x - camera.x, targetPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-        ctx.restore();
-      } else {
-        ctx.save();
-        // Helper untuk mendapatkan center cell
-        const getCellCenter = (cell) => {
-          const pos = this.grid.getCellPosition(cell.col, cell.row);
-          return {
-            x: pos.x + this.grid.tileSize / 2,
-            y: pos.y + this.grid.tileSize / 2
-          };
-        };
-
-        // Buat gradient dari titik awal ke titik akhir path
-        const startPos = getCellCenter(path[0]);
-        const endPos = getCellCenter(path[path.length - 1]);
-        const gradient = ctx.createLinearGradient(startPos.x - camera.x, startPos.y - camera.y,
-                                                  endPos.x - camera.x, endPos.y - camera.y);
-        gradient.addColorStop(0, 'rgba(138,127,255,0.8)');
-        gradient.addColorStop(1, 'rgba(144,89,255,0.8)');
-
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 20;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-
-        ctx.beginPath();
-        let prev = getCellCenter(path[0]);
-        ctx.moveTo(prev.x - camera.x, prev.y - camera.y);
-
-        // Menggunakan arcTo untuk membuat rounded corners (corner radius 12px)
-        for (let i = 1; i < path.length; i++) {
-          const current = getCellCenter(path[i]);
-          if (i < path.length - 1) {
-            const next = getCellCenter(path[i + 1]);
-            ctx.arcTo(current.x - camera.x, current.y - camera.y,
-                      next.x - camera.x, next.y - camera.y,
-                      12);
-          } else {
-            ctx.lineTo(current.x - camera.x, current.y - camera.y);
+      const range = this.pendingMove.hero.movementRange;
+      // Render overlay hex range untuk setiap cell dalam jangkauan
+      for (let c = origin.col - range; c <= origin.col + range; c++) {
+        for (let r = origin.row - range; r <= origin.row + range; r++) {
+          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
+          const distance = Math.abs(c - origin.col) + Math.abs(r - origin.row);
+          if (distance <= range) {
+            const cellPos = this.grid.getCellPosition(c, r);
+            ctx.save();
+            // Periksa apakah cell target ditempati oleh hero lain (ally)
+            const occupyingHero = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r);
+            // Lakukan pathfinding untuk cell ini
+            const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
+            // Jika jalur ditemukan dan jumlah langkah tidak melebihi movementRange...
+            if (cellPath.length > 0 && (cellPath.length - 1) <= range) {
+              if (occupyingHero) {
+                ctx.fillStyle = 'rgba(0,0,255,0.15)';
+              } else {
+                ctx.fillStyle = 'rgba(0,0,255,0.3)';
+              }
+            } else {
+              ctx.fillStyle = 'rgba(255,0,0,0.3)';
+            }
+            ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+            // Jika tidak ada occupyingHero, tambahkan outline pada cell
+            if (!occupyingHero && cellPath.length > 0 && (cellPath.length - 1) <= range) {
+              ctx.strokeStyle = 'rgba(0,0,255,0.2)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+            }
+            ctx.restore();
           }
         }
-        ctx.stroke();
-        ctx.restore();
+      }
+      
+      // Render Path Line (jika target dipilih) di atas overlay, namun tetap di bawah unit
+      if (this.pendingMove.newPosition) {
+        const goal = this.pendingMove.newPosition;
+        const maxRange = this.pendingMove.hero.movementRange;
+        const path = this.findPath(this.grid, origin, goal, maxRange);
+        if (path.length > 0 && (path.length - 1) <= maxRange) {
+          ctx.save();
+          const getCellCenter = (cell) => {
+            const pos = this.grid.getCellPosition(cell.col, cell.row);
+            return { x: pos.x + this.grid.tileSize / 2, y: pos.y + this.grid.tileSize / 2 };
+          };
+          const startPos = getCellCenter(path[0]);
+          const endPos = getCellCenter(path[path.length - 1]);
+          const gradient = ctx.createLinearGradient(startPos.x - camera.x, startPos.y - camera.y,
+                                                    endPos.x - camera.x, endPos.y - camera.y);
+          gradient.addColorStop(0, 'rgba(138,127,255,0.8)');
+          gradient.addColorStop(1, 'rgba(144,89,255,0.8)');
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 20;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          let prev = getCellCenter(path[0]);
+          ctx.moveTo(prev.x - camera.x, prev.y - camera.y);
+          for (let i = 1; i < path.length; i++) {
+            const current = getCellCenter(path[i]);
+            if (i < path.length - 1) {
+              const next = getCellCenter(path[i + 1]);
+              ctx.arcTo(current.x - camera.x, current.y - camera.y,
+                        next.x - camera.x, next.y - camera.y,
+                        12);
+            } else {
+              ctx.lineTo(current.x - camera.x, current.y - camera.y);
+            }
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
       }
     }
     
+    // --- Render Heroes (sorted berdasarkan pixelY agar layering benar) ---
     this.heroes.sort((a, b) => a.pixelY - b.pixelY);
-    // --- Render Heroes ---
     this.heroes.forEach(hero => {
       if (hero.health > 0) {
         hero.render(ctx, this.grid, camera);
@@ -216,42 +235,6 @@ export default class Battle {
       ctx.strokeStyle = 'yellow';
       ctx.lineWidth = 3;
       ctx.strokeRect(pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-      ctx.restore();
-    }
-    
-    // --- Render Overlay Jangkauan dan Indikator Posisi Asli ---
-    if (this.actionMode === 'move' && this.pendingMove) {
-      const origin = this.pendingMove.originalPosition;
-      const range = this.pendingMove.hero.movementRange;
-      for (let c = origin.col - range; c <= origin.col + range; c++) {
-        for (let r = origin.row - range; r <= origin.row + range; r++) {
-          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
-          const distance = Math.abs(c - origin.col) + Math.abs(r - origin.row);
-          if (distance <= range) {
-            const cellPos = this.grid.getCellPosition(c, r);
-            ctx.save();
-            // Periksa apakah cell target ditempati oleh hero lain
-            const occupyingHero = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r);
-            // Lakukan pathfinding tanpa mempertimbangkan ally (karena ally tidak dianggap obstacle)
-            const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
-            // Tambahkan pengecekan panjang jalur: jika jalur yang ditemukan lebih dari movementRange, maka dianggap unreachable.
-            if (cellPath.length > 0 && (cellPath.length - 1) <= range && !occupyingHero) {
-              ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Reachable: biru transparan
-            } else {
-              ctx.fillStyle = 'rgba(255,0,0,0.3)'; // Unreachable: merah transparan
-            }
-            ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-            ctx.restore();
-          }
-        }
-      }
-      // Gambar indikator posisi asli (dashed rectangle) di cell asal
-      const origPos = this.grid.getCellPosition(origin.col, origin.row);
-      ctx.save();
-      ctx.strokeStyle = 'blue';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
-      ctx.strokeRect(origPos.x - camera.x, origPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
       ctx.restore();
     }
   }

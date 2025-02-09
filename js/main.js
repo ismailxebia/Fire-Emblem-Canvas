@@ -5,6 +5,10 @@ import { setupActionMenu } from './ui.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+// Nonaktifkan image smoothing agar pixel art tampil jelas (pixelated)
+ctx.imageSmoothingEnabled = false;
+ctx.webkitImageSmoothingEnabled = false;
+ctx.mozImageSmoothingEnabled = false;
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;

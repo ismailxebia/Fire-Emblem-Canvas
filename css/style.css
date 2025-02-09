@@ -3,20 +3,25 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-  }
-  
-  /* Pastikan HTML dan body memenuhi layar */
-  html, body {
+}
+
+/* Pastikan HTML dan body memenuhi layar */
+html,
+body {
     width: 100%;
     height: 100%;
-  }
-  
-  /* Styling untuk canvas agar memenuhi layar */
-  #gameCanvas {
+}
+
+/* Styling untuk canvas agar memenuhi layar */
+#gameCanvas {
     display: block;
     width: 100%;
     height: 100%;
-    background-color: #ffffff; /* Bisa diganti dengan background image jika perlu */
+    background-color: #ffffff;
+    /* Bisa diganti dengan background image jika perlu */
     touch-action: none;
-  }
-  
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    -webkit-image-rendering: pixelated;
+}
