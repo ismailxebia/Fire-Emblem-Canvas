@@ -48,35 +48,27 @@ export function handleInput(game) {
       const y = e.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-  
-      // MODE MOVE: Jika hero sudah dipilih dan mode aksi adalah 'move'
+
+      // MODE MOVE: jika hero sudah dipilih dan mode aksi adalah 'move'
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
         // Ambil titik awal (origin) dari pendingMove jika ada, atau dari posisi hero saat ini
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
-  
+
         // Periksa jarak Manhattan dari origin ke target
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
-        if (manhattanDistance > game.battle.selectedHero.movementRange) {
-          // Target di luar jangkauan kasar, abaikan klik
-          return;
-        }
-  
-        // Tambahkan pengecekan: jika cell target sudah ditempati oleh hero lain (ally), jangan izinkan pemindahan.
+        if (manhattanDistance > game.battle.selectedHero.movementRange) return;
+
+        // Jika cell target sudah ditempati oleh hero lain (ally), jangan izinkan move
         const occupyingHero = getHeroAtCell(col, row);
-        if (occupyingHero && occupyingHero !== game.battle.selectedHero) {
-          // Jika cell sudah ditempati oleh hero lain, abaikan klik.
-          return;
-        }
-  
-        // Gunakan fungsi pathfinding (tanpa parameter occupied, karena ally tidak dianggap obstacle)
+        if (occupyingHero && occupyingHero !== game.battle.selectedHero) return;
+
+        // Gunakan fungsi pathfinding untuk memastikan target cell dapat dijangkau
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
-        if (path.length === 0) {
-          // Jika tidak ada jalur valid (misalnya karena obstacle), abaikan klik
-          return;
-        }
-  
+        // Jika tidak ada jalur valid atau jumlah langkah (path.length - 1) melebihi movementRange, abort.
+        if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
+
         // Jika klik pada cell yang sama dengan posisi preview hero, batalkan mode move
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
@@ -96,9 +88,7 @@ export function handleInput(game) {
           } else {
             game.battle.pendingMove.newPosition = { col, row };
           }
-          // Mulai animasi perpindahan secara smooth ke target cell
           game.battle.selectedHero.startMove(game.grid, col, row);
-          // Tampilkan floating confirm menu untuk konfirmasi perpindahan
           document.getElementById('confirmMenu').style.display = 'block';
         }
       }
@@ -127,7 +117,7 @@ export function handleInput(game) {
     isDragging = false;
     hasMoved = false;
   });
-  
+
   // ================= Touch Events (Mobile) =================
   game.canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
@@ -137,7 +127,7 @@ export function handleInput(game) {
       hasMoved = false;
     }
   });
-  
+
   game.canvas.addEventListener('touchmove', (e) => {
     if (!isDragging || e.touches.length !== 1) return;
     const currentX = e.touches[0].clientX;
@@ -155,7 +145,7 @@ export function handleInput(game) {
     }
     e.preventDefault();
   }, { passive: false });
-  
+
   game.canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     if (!hasMoved && e.changedTouches.length === 1) {
@@ -173,12 +163,11 @@ export function handleInput(game) {
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
   
-        // Jika cell target sudah ditempati oleh hero lain, jangan izinkan move
         const occupyingHero = getHeroAtCell(col, row);
         if (occupyingHero && occupyingHero !== game.battle.selectedHero) return;
   
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
-        if (path.length === 0) return;
+        if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
   
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
