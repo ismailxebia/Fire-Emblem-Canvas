@@ -100,10 +100,10 @@ export default class Battle {
 
     // Inisialisasi heroes (dengan variasi movementRange)
     this.heroes = [
-      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://i.ibb.co/ks6DrtdG/unit1.png'),
-      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRMDQZblkxnFVX-fuNPKOyBHZCBJkIIAp0lPQ&s'),
-      new Hero('HeroC', 2, 3, 80, 25, 1, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRMDQZblkxnFVX-fuNPKOyBHZCBJkIIAp0lPQ&s'),
-      new Hero('HeroD', 3, 3, 70, 15, 3, 'https://i.ibb.co/yourImageUrl/unit4.png')
+      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png'),
+      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B(1).png'),
+      new Hero('HeroC', 2, 3, 80, 25, 1, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20A.png'),
+      new Hero('HeroD', 3, 3, 70, 15, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20D.png')
     ];
 
     // Inisialisasi enemies
@@ -194,6 +194,7 @@ export default class Battle {
       }
     }
     
+    this.heroes.sort((a, b) => a.pixelY - b.pixelY);
     // --- Render Heroes ---
     this.heroes.forEach(hero => {
       if (hero.health > 0) {

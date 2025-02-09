@@ -13,7 +13,7 @@ export class Hero {
    * @param {number} movementRange - Jangkauan pergerakan (dalam cell), default 3.
    * @param {string} spriteUrl - URL gambar sprite hero. Default menggunakan placeholder.
    */
-  constructor(name, col, row, health, attack, movementRange = 3, spriteUrl = "https://i.ibb.co/ks6DrtdG/unit1.png") {
+  constructor(name, col, row, health, attack, movementRange = 3, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png") {
     this.name = name;
     this.col = col;
     this.row = row;
@@ -113,7 +113,7 @@ export class Hero {
     
     if (this.image.complete && this.image.naturalWidth > 0) {
       // Desired tinggi adalah 90% dari grid.tileSize (bisa diubah sesuai kebutuhan)
-      const desiredHeight = grid.tileSize * 1.1;
+      const desiredHeight = grid.tileSize * 1.15;
       const scale = desiredHeight / this.image.height;
       const imgHeight = this.image.height * scale;
       const imgWidth = this.image.width * scale;
