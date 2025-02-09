@@ -236,7 +236,7 @@ export default class Battle {
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
             // Tambahkan pengecekan panjang jalur: jika jalur yang ditemukan lebih dari movementRange, maka dianggap unreachable.
             if (cellPath.length > 0 && (cellPath.length - 1) <= range && !occupyingHero) {
-              ctx.fillStyle = 'rgba(0,0,255,0.15)'; // Reachable: biru transparan
+              ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Reachable: biru transparan
             } else {
               ctx.fillStyle = 'rgba(255,0,0,0.3)'; // Unreachable: merah transparan
             }

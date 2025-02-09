@@ -51,7 +51,7 @@ export default class Grid {
    * @param {object} camera - Objek kamera { x, y }.
    */
   render(ctx, camera) {
-    ctx.strokeStyle = 'rgb(235,235,235)';
+    ctx.strokeStyle = 'rgba(235, 235, 235, 0)';
     ctx.lineWidth = 1;
     // Gambar garis vertikal
     for (let i = 0; i <= this.cols; i++) {
@@ -71,7 +71,7 @@ export default class Grid {
     }
     // Gambar obstacle (jika ada)
     if (this.obstacles) {
-      ctx.fillStyle = 'rgba(50,50,50,0.7)';
+      ctx.fillStyle = 'rgba(50, 50, 50, 0)';
       this.obstacles.forEach(obstacle => {
         const pos = this.getCellPosition(obstacle.col, obstacle.row);
         ctx.fillRect(pos.x - camera.x, pos.y - camera.y, this.tileSize, this.tileSize);
