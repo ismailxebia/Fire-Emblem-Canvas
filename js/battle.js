@@ -100,18 +100,18 @@ export default class Battle {
 
     // Inisialisasi heroes (dengan variasi movementRange)
     this.heroes = [
-      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png'),
-      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B(1).png'),
+      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png'),
+      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png'),
       new Hero('HeroC', 2, 3, 80, 25, 1, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20A.png'),
       new Hero('HeroD', 3, 3, 70, 15, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20D.png')
     ];
 
     // Inisialisasi enemies
     this.enemies = [
-      new Enemy('Enemy1', 0, 19, 50, 15),
-      new Enemy('Enemy2', 1, 19, 60, 18),
-      new Enemy('Enemy3', 2, 19, 40, 12),
-      new Enemy('Enemy4', 3, 19, 80, 20)
+      new Enemy('Enemy1', 0, 8, 50, 15),
+      new Enemy('Enemy2', 1, 8, 60, 18),
+      new Enemy('Enemy3', 2, 9, 40, 12),
+      new Enemy('Enemy4', 3, 8, 80, 20)
     ];
 
     // Properti state pertarungan

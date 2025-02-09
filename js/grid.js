@@ -8,7 +8,7 @@ export default class Grid {
   constructor(cols, rows, canvasWidth) {
     this.cols = cols;
     this.rows = rows;
-    this.padding = 12; // Safe area padding 8px di sekeliling
+    this.padding = 8; // Safe area padding 8px di sekeliling
     this.updateDimensions(canvasWidth);
     // Contoh obstacle
     this.obstacles = [

@@ -12,7 +12,7 @@ export default class Game {
     this.camera = { x: 0, y: 0 };
 
     // Buat grid dengan 8 kolom dan 20 baris, sesuai lebar canvas
-    this.grid = new Grid(6, 20, canvas.width);
+    this.grid = new Grid(6, 17, canvas.width);
 
     // Buat instance battle yang akan mengelola 4 hero dan 4 enemy
     this.battle = new Battle(this.grid);
