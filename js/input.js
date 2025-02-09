@@ -49,9 +49,9 @@ export function handleInput(game) {
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
   
-      // Mode MOVE: jika hero sudah dipilih dan mode aksi adalah 'move'
+      // MODE MOVE: Jika hero sudah dipilih dan mode aksi adalah 'move'
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Ambil titik awal dari pendingMove (jika sudah ada) atau dari posisi hero saat ini
+        // Ambil titik awal (origin) dari pendingMove jika ada, atau dari posisi hero saat ini
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
@@ -63,10 +63,17 @@ export function handleInput(game) {
           return;
         }
   
-        // Gunakan fungsi pathfinding melalui game.battle.findPath untuk memastikan cell target dapat dijangkau
+        // Tambahkan pengecekan: jika cell target sudah ditempati oleh hero lain (ally), jangan izinkan pemindahan.
+        const occupyingHero = getHeroAtCell(col, row);
+        if (occupyingHero && occupyingHero !== game.battle.selectedHero) {
+          // Jika cell sudah ditempati oleh hero lain, abaikan klik.
+          return;
+        }
+  
+        // Gunakan fungsi pathfinding (tanpa parameter occupied, karena ally tidak dianggap obstacle)
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
         if (path.length === 0) {
-          // Jika tidak ada jalur valid (misalnya karena obstacle menghalangi), abaikan klik
+          // Jika tidak ada jalur valid (misalnya karena obstacle), abaikan klik
           return;
         }
   
@@ -95,7 +102,7 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'block';
         }
       }
-      // Mode NORMAL: proses seleksi/deseleksi hero
+      // MODE NORMAL: proses seleksi/deseleksi hero
       else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
@@ -119,8 +126,8 @@ export function handleInput(game) {
     }
     isDragging = false;
     hasMoved = false;
-  });  
-
+  });
+  
   // ================= Touch Events (Mobile) =================
   game.canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
@@ -130,7 +137,7 @@ export function handleInput(game) {
       hasMoved = false;
     }
   });
-
+  
   game.canvas.addEventListener('touchmove', (e) => {
     if (!isDragging || e.touches.length !== 1) return;
     const currentX = e.touches[0].clientX;
@@ -148,10 +155,9 @@ export function handleInput(game) {
     }
     e.preventDefault();
   }, { passive: false });
-
+  
   game.canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
-    // Gunakan e.changedTouches[0] untuk mendapatkan posisi sentuhan terakhir
     if (!hasMoved && e.changedTouches.length === 1) {
       const touch = e.changedTouches[0];
       const rect = game.canvas.getBoundingClientRect();
@@ -166,10 +172,14 @@ export function handleInput(game) {
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
-        
+  
+        // Jika cell target sudah ditempati oleh hero lain, jangan izinkan move
+        const occupyingHero = getHeroAtCell(col, row);
+        if (occupyingHero && occupyingHero !== game.battle.selectedHero) return;
+  
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
         if (path.length === 0) return;
-        
+  
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
@@ -213,8 +223,8 @@ export function handleInput(game) {
     }
     isDragging = false;
     hasMoved = false;
-  });  
-
+  });
+  
   // ================= Keyboard Scrolling (Optional) =================
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;
