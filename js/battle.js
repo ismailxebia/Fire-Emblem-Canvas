@@ -3,14 +3,24 @@ import { Hero } from './entities/hero.js';
 import { Enemy } from './entities/enemy.js';
 
 /**
+ * Fungsi smoothStep: mengembalikan nilai interpolasi smooth dari 0 ke 1.
+ * Jika x <= edge0, maka 0; jika x >= edge1, maka 1; di antaranya, interpolasi smooth.
+ */
+function smoothStep(edge0, edge1, x) {
+  let t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
  * Fungsi A* sederhana untuk pathfinding dengan dukungan obstacle dan batas range.
  * Menggunakan Manhattan distance sebagai heuristic.
+ * 
  * @param {object} grid - Objek grid dengan properti: cols, rows, getCellPosition(col, row) dan obstacles.
  * @param {object} start - Objek { col, row } sebagai titik awal.
  * @param {object} goal - Objek { col, row } sebagai titik tujuan.
- * @param {number} maxRange - Batas maksimum (Manhattan distance) yang diperbolehkan dari titik awal.
- * @param {Array} enemyUnits - Array unit enemy yang harus dianggap sebagai obstacle.
- * @returns {Array} Array node yang membentuk jalur dari start ke goal (termasuk start dan goal), atau [] jika tidak ditemukan jalur.
+ * @param {number} maxRange - Batas maksimum (Manhattan distance) dari titik awal.
+ * @param {Array} enemyUnits - Array unit enemy yang dianggap sebagai obstacle.
+ * @returns {Array} Array node yang membentuk jalur dari start ke goal, atau [] jika tidak ditemukan jalur.
  */
 function findPath(grid, start, goal, maxRange, enemyUnits = []) {
   function createNode(col, row, g, h, f, parent) {
@@ -19,7 +29,6 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
   function heuristic(a, b) {
     return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
   }
-  // Valid jika: dalam grid, bukan obstacle, bukan ditempati enemy, dan jarak dari start ≤ maxRange.
   function isValid(col, row) {
     if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
     if (grid.obstacles && grid.obstacles.some(o => o.col === col && o.row === row)) return false;
@@ -127,7 +136,10 @@ export default class Battle {
       return findPath(grid, start, goal, maxRange, this.enemies);
     };
 
-    // Preload gambar indikator kustom untuk hero yang dipilih
+    // Properti untuk animasi overlay hex range (efek gelombang)
+    this.hexOverlayProgress = 0; // Nilai 0 = overlay tidak terlihat, 1 = overlay penuh
+
+    // Preload gambar indikator kustom untuk unit yang dipilih
     this.indicatorImage = new Image();
     this.indicatorImage.src = 'assets/Selected.png';
   }
@@ -145,6 +157,12 @@ export default class Battle {
         enemy.update(deltaTime, this.grid);
       }
     });
+    // Update overlay progress: naik jika mode move aktif, turun jika tidak.
+    if (this.actionMode === 'move') {
+      this.hexOverlayProgress = Math.min(this.hexOverlayProgress + deltaTime / 500, 1);
+    } else {
+      this.hexOverlayProgress = Math.max(this.hexOverlayProgress - deltaTime / 500, 0);
+    }
   }
 
   render(ctx, camera) {
@@ -152,7 +170,11 @@ export default class Battle {
     if (this.actionMode === 'move' && this.pendingMove) {
       const origin = this.pendingMove.originalPosition;
       const range = this.pendingMove.hero.movementRange;
-      // Render overlay untuk setiap cell dalam jangkauan
+      // Parameter untuk animasi gelombang: delay per cell dan durasi transisi tiap cell.
+      const delayFactor = 0.15;         // Delay per unit jarak
+      const activationDuration = 0.15;    // Durasi transisi tiap cell
+
+      // Render overlay untuk setiap cell dalam jangkauan.
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
@@ -160,22 +182,42 @@ export default class Battle {
           if (distance <= range) {
             const cellPos = this.grid.getCellPosition(c, r);
             ctx.save();
-            // Periksa apakah cell target ditempati oleh hero lain (ally)
-            const occupyingHero = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r);
+            // Hitung delay untuk cell berdasarkan jarak
+            const cellDelay = distance * delayFactor;
+            // Gunakan smoothStep untuk fade in/out; cellProgress dari 0 ke 1
+            const cellProgress = smoothStep(cellDelay, cellDelay + activationDuration, this.hexOverlayProgress);
+            // Tentukan base intensitas overlay (konstan) untuk cell yang dapat dijangkau:
+            // Jika cell tidak dapat dijangkau (path tidak valid), gunakan warna merah transparent.
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
-            if (cellPath.length > 0 && (cellPath.length - 1) <= range) {
-              if (occupyingHero) {
-                ctx.fillStyle = 'rgba(0,0,255,0.15)';
-              } else {
-                ctx.fillStyle = 'rgba(0,0,255,0.3)';
-              }
+            let baseAlpha;
+            let baseColor;
+            if (cellPath.length === 0 || (cellPath.length - 1) > range) {
+              baseAlpha = 0.3;
+              baseColor = '255,0,0'; // Merah untuk tidak dapat dijangkau
             } else {
-              ctx.fillStyle = 'rgba(255,0,0,0.3)';
+              // Jika ditempati oleh unit (ally atau enemy), intensitas lebih rendah
+              const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
+                                      this.enemies.find(e => e.col === c && e.row === r);
+              if (occupyingUnit) {
+                baseAlpha = 0.15;
+              } else {
+                baseAlpha = 0.3; // Untuk cell kosong yang dapat dijangkau, kita gunakan 0.3 (atau 0.35 jika diinginkan)
+              }
+              baseColor = '0,0,255';
             }
+            // Final overlay alpha adalah baseAlpha, tetapi hanya muncul jika cellProgress mencapai 1.
+            // Jika tidak, kita gunakan interpolasi dari 0 ke baseAlpha.
+            const finalAlpha = cellProgress * baseAlpha;
+            ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
             ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-            if (!occupyingHero && cellPath.length > 0 && (cellPath.length - 1) <= range) {
-              ctx.strokeStyle = 'rgba(0,0,255,0.2)';
-              ctx.lineWidth = 1;
+            
+            // Jika cell kosong dan sudah full aktif, tambahkan outline dengan warna biru (atau putih sesuai permintaan sebelumnya).
+            if (!(
+              this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
+              this.enemies.find(e => e.col === c && e.row === r)
+            ) && cellProgress === 1) {
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+              ctx.lineWidth = 2;
               ctx.strokeRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
             }
             ctx.restore();
