@@ -12,7 +12,7 @@
       "magicSkill": "Fireball",
       "attackRange": 1,
       "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png",
+      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroA_portrait.png",
       "col": 2,
       "row": 2
@@ -30,7 +30,7 @@
       "magicSkill": "Ice Shard",
       "attackRange": 1,
       "hexRange": 2,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png",
+      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroB_portrait.png",
       "col": 3,
       "row": 2
@@ -48,7 +48,7 @@
       "magicSkill": "Lightning Strike",
       "attackRange": 1,
       "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20A.png",
+      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroC_portrait.png",
       "col": 2,
       "row": 3
@@ -66,7 +66,7 @@
       "magicSkill": "Heal",
       "attackRange": 1,
       "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20D.png",
+      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroD_portrait.png",
       "col": 3,
       "row": 3

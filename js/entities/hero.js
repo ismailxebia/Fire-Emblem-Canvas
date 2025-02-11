@@ -3,6 +3,17 @@
 // Definisikan kecepatan default secara global (dalam pixel per detik)
 const DEFAULT_MOVE_SPEED = 850;
 
+// Ukuran frame pada spritesheet terpadu
+const FRAME_WIDTH = 256;
+const FRAME_HEIGHT = 240;
+
+// Konfigurasi aksi: tentukan baris dan jumlah frame untuk tiap aksi
+const ACTION_CONFIG = {
+  idle: { row: 0, frameCount: 4 },
+  attack: { row: 1, frameCount: 4 },
+  magicIdle: { row: 2, frameCount: 4 }
+};
+
 export class Hero {
   /**
    * @param {string} name - Nama hero.
@@ -11,7 +22,7 @@ export class Hero {
    * @param {number} health - Nilai kesehatan.
    * @param {number} attack - Nilai serangan.
    * @param {number} movementRange - Jangkauan pergerakan (dalam cell), default 3.
-   * @param {string} spriteUrl - URL gambar sprite hero. Default menggunakan placeholder.
+   * @param {string} spriteUrl - URL spritesheet terpadu hero.
    */
   constructor(name, col, row, health, attack, movementRange = 3, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png") {
     this.name = name;
@@ -22,11 +33,10 @@ export class Hero {
     this.movementRange = movementRange;
     this.moveSpeed = DEFAULT_MOVE_SPEED;
     
-    // Set URL sprite dan buat objek Image untuk preload
+    // Pemuatan spritesheet terpadu
     this.spriteUrl = spriteUrl;
     this.image = new Image();
     this.image.src = spriteUrl;
-    // Opsional: debugging image load
     this.image.onload = () => {
       console.log(this.name, "sprite loaded");
     };
@@ -43,6 +53,12 @@ export class Hero {
     this.moveDuration = 0;
     this.targetCol = col;
     this.targetRow = row;
+
+    // Properti untuk animasi spritesheet
+    this.currentAction = 'idle'; // Default aksi adalah "idle"
+    this.frameIndex = 0;
+    this.frameTimer = 0;
+    this.frameInterval = 160; // Interval per frame dalam milidetik (sesuaikan sesuai kebutuhan)
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)
@@ -54,36 +70,32 @@ export class Hero {
   startMove(grid, newCol, newRow) {
     this.targetCol = newCol;
     this.targetRow = newRow;
-    // Simpan posisi awal (dalam pixel) dari posisi hero saat ini
     this.startPixelX = this.pixelX;
     this.startPixelY = this.pixelY;
-    // Hitung target posisi pixel berdasarkan cell grid
     const targetPos = grid.getCellPosition(newCol, newRow);
     this.targetPixelX = targetPos.x;
     this.targetPixelY = targetPos.y;
-    // Hitung jarak antara posisi awal dan target
     const dx = this.targetPixelX - this.startPixelX;
     const dy = this.targetPixelY - this.startPixelY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    // Hitung durasi animasi berdasarkan jarak dan kecepatan global (dalam milidetik),
-    // dan gunakan nilai minimum (misalnya 150ms) agar animasi tidak langsung selesai.
     this.moveDuration = Math.max((distance / this.moveSpeed) * 1000, 150);
     this.moveProgress = 0;
     this.isMoving = true;
   }
 
-  // Update animasi perpindahan hero
+  // Update animasi perpindahan hero dan animasi spritesheet
   update(deltaTime, grid) {
+    // Update animasi spritesheet (misalnya, untuk keadaan idle, attack, atau magicIdle)
+    this.updateAnimation(deltaTime);
+
     if (!this.isMoving) {
-      // Jika tidak dalam animasi, pastikan posisi pixel sesuai dengan cell grid
       const pos = grid.getCellPosition(this.col, this.row);
       this.pixelX = pos.x;
       this.pixelY = pos.y;
     } else {
       this.moveProgress += deltaTime / this.moveDuration;
-      let t = Math.min(this.moveProgress, 1); // t dalam rentang [0,1]
+      let t = Math.min(this.moveProgress, 1);
       let easedT = this.easeInOutQuad(t);
-      // Interpolasi posisi pixel secara smooth
       this.pixelX = this.startPixelX + (this.targetPixelX - this.startPixelX) * easedT;
       this.pixelY = this.startPixelY + (this.targetPixelY - this.startPixelY) * easedT;
       if (t >= 1) {
@@ -94,38 +106,55 @@ export class Hero {
     }
   }
 
-  // Render hero menggunakan sprite image secara responsif.
-  // Gambar akan di-render agar:
-  // - Menggunakan nilai interpolasi (this.pixelX, this.pixelY) sehingga animasi perpindahan terlihat.
-  // - Di-align horizontal center dan bottom pada cell grid.
-  // - Ukuran gambar diskalakan agar tinggi mencapai 90% dari grid.tileSize, menjaga aspect ratio.
-  // - Gambar tidak di-clipping, sehingga bisa overflow (jika diinginkan).
+  // Update frame animasi berdasarkan deltaTime
+  updateAnimation(deltaTime) {
+    // Dapatkan konfigurasi untuk aksi saat ini; fallback ke idle jika tidak tersedia.
+    const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
+    this.frameTimer += deltaTime;
+    if (this.frameTimer >= this.frameInterval) {
+      this.frameTimer = 0;
+      this.frameIndex = (this.frameIndex + 1) % config.frameCount;
+    }
+  }
+
+  // Render hero menggunakan spritesheet terpadu.
+  // Render dengan posisi interpolasi (this.pixelX, this.pixelY) agar animasi perpindahan terlihat,
+  // di-align horizontal center dan bottom pada cell grid, dan gambar diskalakan agar tinggi mencapai 115% dari grid.tileSize.
   render(ctx, grid, camera) {
-    // Gunakan nilai interpolasi (this.pixelX, this.pixelY) sebagai posisi render.
+    // Ambil posisi render berdasarkan interpolasi
     const pos = { x: this.pixelX, y: this.pixelY };
-    
-    // Hitung center horizontal dan bottom dari cell berdasarkan posisi cell (tetap menggunakan grid.getCellPosition untuk cell dasar)
-    // Jika hero tidak bergerak, cellPos = grid.getCellPosition(this.col, this.row);
-    // Tetapi kita render berdasarkan pos (yang merupakan nilai interpolasi) sehingga animasi terlihat.
-    const cellPos = pos; // pos sudah di-update melalui animasi
-    const cellCenterX = cellPos.x + grid.tileSize / 2 - camera.x;
-    const cellBottomY = cellPos.y + grid.tileSize - camera.y;
-    
+    // Hitung center dan bottom dari cell (menggunakan nilai interpolasi)
+    const cellCenterX = pos.x + grid.tileSize / 2 - camera.x;
+    const cellBottomY = pos.y + grid.tileSize - camera.y;
+
     if (this.image.complete && this.image.naturalWidth > 0) {
-      // Desired tinggi adalah 90% dari grid.tileSize (bisa diubah sesuai kebutuhan)
-      const desiredHeight = grid.tileSize * 1.15;
-      const scale = desiredHeight / this.image.height;
-      const imgHeight = this.image.height * scale;
-      const imgWidth = this.image.width * scale;
+      // Konfigurasi aksi (default idle, attack, magicIdle)
+      const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
+      // Tentukan baris pada spritesheet berdasarkan aksi
+      const rowIndex = config.row;
       
-      // Hitung posisi gambar agar horizontal center dan bottom aligned
+      // Desired tinggi adalah 115% dari grid.tileSize
+      const desiredHeight = grid.tileSize * 1.15;
+      const scale = desiredHeight / FRAME_HEIGHT;
+      const imgHeight = FRAME_HEIGHT * scale;
+      const imgWidth = FRAME_WIDTH * scale;
+      
+      // Hitung offset source pada spritesheet
+      const sourceX = this.frameIndex * FRAME_WIDTH;
+      const sourceY = rowIndex * FRAME_HEIGHT;
+      
+      // Hitung posisi render agar horizontal center dan bottom aligned
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
       
-      ctx.drawImage(this.image, drawX, drawY, imgWidth, imgHeight);
+      ctx.drawImage(
+        this.image,
+        sourceX, sourceY, FRAME_WIDTH, FRAME_HEIGHT,
+        drawX, drawY, imgWidth, imgHeight
+      );
     } else {
       ctx.fillStyle = 'blue';
-      ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, grid.tileSize, grid.tileSize);
+      ctx.fillRect(pos.x - camera.x, pos.y - camera.y, grid.tileSize, grid.tileSize);
     }
   }
 }
