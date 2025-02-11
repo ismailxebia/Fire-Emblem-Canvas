@@ -9,19 +9,21 @@ import { Enemy } from './entities/enemy.js';
  * @param {object} start - Objek { col, row } sebagai titik awal.
  * @param {object} goal - Objek { col, row } sebagai titik tujuan.
  * @param {number} maxRange - Batas maksimum (Manhattan distance) yang diperbolehkan dari titik awal.
+ * @param {Array} enemyUnits - Array unit enemy yang harus dianggap sebagai obstacle.
  * @returns {Array} Array node yang membentuk jalur dari start ke goal (termasuk start dan goal), atau [] jika tidak ditemukan jalur.
  */
-function findPath(grid, start, goal, maxRange) {
+function findPath(grid, start, goal, maxRange, enemyUnits = []) {
   function createNode(col, row, g, h, f, parent) {
     return { col, row, g, h, f, parent };
   }
   function heuristic(a, b) {
     return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
   }
-  // Valid jika dalam grid, tidak obstacle, dan Manhattan distance dari start tidak melebihi maxRange
+  // Valid jika: dalam grid, bukan obstacle, bukan ditempati enemy, dan jarak dari start ≤ maxRange.
   function isValid(col, row) {
     if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
     if (grid.obstacles && grid.obstacles.some(o => o.col === col && o.row === row)) return false;
+    if (enemyUnits && enemyUnits.some(e => e.col === col && e.row === row)) return false;
     const rangeFromStart = Math.abs(col - start.col) + Math.abs(row - start.row);
     if (rangeFromStart > maxRange) return false;
     return true;
@@ -120,17 +122,29 @@ export default class Battle {
     this.actionMode = 'normal'; // 'normal', 'selected', atau 'move'
     this.pendingMove = null;    // { hero, originalPosition: {col, row}, newPosition: {col, row} }
 
-    // Agar fungsi findPath dapat diakses dari input.js
-    this.findPath = findPath;
+    // Bind fungsi findPath sehingga enemy dianggap sebagai obstacle
+    this.findPath = (grid, start, goal, maxRange) => {
+      return findPath(grid, start, goal, maxRange, this.enemies);
+    };
+
+    // Preload gambar indikator kustom untuk hero yang dipilih
+    this.indicatorImage = new Image();
+    this.indicatorImage.src = 'assets/Selected.png';
   }
 
   update(deltaTime) {
+    // Update semua heroes
     this.heroes.forEach(hero => {
       if (hero.health > 0) {
         hero.update(deltaTime, this.grid);
       }
     });
-    // Update enemy (placeholder)
+    // Update semua enemies
+    this.enemies.forEach(enemy => {
+      if (enemy.health > 0) {
+        enemy.update(deltaTime, this.grid);
+      }
+    });
   }
 
   render(ctx, camera) {
@@ -138,7 +152,7 @@ export default class Battle {
     if (this.actionMode === 'move' && this.pendingMove) {
       const origin = this.pendingMove.originalPosition;
       const range = this.pendingMove.hero.movementRange;
-      // Render overlay hex range untuk setiap cell dalam jangkauan
+      // Render overlay untuk setiap cell dalam jangkauan
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
@@ -148,9 +162,7 @@ export default class Battle {
             ctx.save();
             // Periksa apakah cell target ditempati oleh hero lain (ally)
             const occupyingHero = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r);
-            // Lakukan pathfinding untuk cell ini
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
-            // Jika jalur ditemukan dan jumlah langkah tidak melebihi movementRange...
             if (cellPath.length > 0 && (cellPath.length - 1) <= range) {
               if (occupyingHero) {
                 ctx.fillStyle = 'rgba(0,0,255,0.15)';
@@ -161,7 +173,6 @@ export default class Battle {
               ctx.fillStyle = 'rgba(255,0,0,0.3)';
             }
             ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-            // Jika tidak ada occupyingHero, tambahkan outline pada cell
             if (!occupyingHero && cellPath.length > 0 && (cellPath.length - 1) <= range) {
               ctx.strokeStyle = 'rgba(0,0,255,0.2)';
               ctx.lineWidth = 1;
@@ -172,7 +183,7 @@ export default class Battle {
         }
       }
       
-      // Render Path Line (jika target dipilih) di atas overlay, namun tetap di bawah unit
+      // Render Path Line (jika target dipilih) di atas overlay, namun di bawah unit
       if (this.pendingMove.newPosition) {
         const goal = this.pendingMove.newPosition;
         const maxRange = this.pendingMove.hero.movementRange;
@@ -229,12 +240,16 @@ export default class Battle {
     });
     
     // --- Render Indikator Seleksi Hero ---
-    if (this.selectedHero) {
+    if (this.selectedHero && typeof this.selectedHero.col === 'number' && typeof this.selectedHero.row === 'number') {
       const pos = this.grid.getCellPosition(this.selectedHero.col, this.selectedHero.row);
       ctx.save();
-      ctx.strokeStyle = 'yellow';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+      if (this.indicatorImage && this.indicatorImage.complete && this.indicatorImage.naturalWidth > 0) {
+        ctx.drawImage(this.indicatorImage, pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+      } else {
+        ctx.strokeStyle = 'yellow';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+      }
       ctx.restore();
     }
   }

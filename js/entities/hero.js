@@ -58,7 +58,7 @@ export class Hero {
     this.currentAction = 'idle'; // Default aksi adalah "idle"
     this.frameIndex = 0;
     this.frameTimer = 0;
-    this.frameInterval = 160; // Interval per frame dalam milidetik (sesuaikan sesuai kebutuhan)
+    this.frameInterval = 200; // Interval per frame dalam milidetik (sesuaikan sesuai kebutuhan)
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)
@@ -134,7 +134,7 @@ export class Hero {
       const rowIndex = config.row;
       
       // Desired tinggi adalah 115% dari grid.tileSize
-      const desiredHeight = grid.tileSize * 1.15;
+      const desiredHeight = grid.tileSize * 1.2;
       const scale = desiredHeight / FRAME_HEIGHT;
       const imgHeight = FRAME_HEIGHT * scale;
       const imgWidth = FRAME_WIDTH * scale;

@@ -10,7 +10,20 @@ export function handleInput(game) {
   let hasMoved = false;
   const dragThreshold = 5;
 
-  // Helper: mencari hero di cell tertentu
+  // Helper: mencari unit (hero atau enemy) di cell tertentu
+  function getUnitAtCell(col, row) {
+    // Cari hero
+    for (let hero of game.battle.heroes) {
+      if (hero.col === col && hero.row === row) return hero;
+    }
+    // Cari enemy
+    for (let enemy of game.battle.enemies) {
+      if (enemy.col === col && enemy.row === row) return enemy;
+    }
+    return null;
+  }
+
+  // Helper: mencari hero saja (untuk seleksi normal)
   function getHeroAtCell(col, row) {
     for (let hero of game.battle.heroes) {
       if (hero.col === col && hero.row === row) return hero;
@@ -60,13 +73,12 @@ export function handleInput(game) {
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
 
-        // Jika cell target sudah ditempati oleh hero lain (ally), jangan izinkan move
-        const occupyingHero = getHeroAtCell(col, row);
-        if (occupyingHero && occupyingHero !== game.battle.selectedHero) return;
+        // Cek apakah cell target sudah ditempati oleh unit lain (baik hero maupun enemy)
+        const occupyingUnit = getUnitAtCell(col, row);
+        if (occupyingUnit && occupyingUnit !== game.battle.selectedHero) return;
 
         // Gunakan fungsi pathfinding untuk memastikan target cell dapat dijangkau
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
-        // Jika tidak ada jalur valid atau jumlah langkah (path.length - 1) melebihi movementRange, abort.
         if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
 
         // Jika klik pada cell yang sama dengan posisi preview hero, batalkan mode move
@@ -75,7 +87,7 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
         } else {
-          // Jika pendingMove belum ada, simpan originalPosition hero sekali; jika sudah ada, update newPosition
+          // Simpan pendingMove (simpan original dan update newPosition)
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
               hero: game.battle.selectedHero,
@@ -163,8 +175,8 @@ export function handleInput(game) {
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
   
-        const occupyingHero = getHeroAtCell(col, row);
-        if (occupyingHero && occupyingHero !== game.battle.selectedHero) return;
+        const occupyingUnit = getUnitAtCell(col, row);
+        if (occupyingUnit && occupyingUnit !== game.battle.selectedHero) return;
   
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
         if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
@@ -213,7 +225,7 @@ export function handleInput(game) {
     isDragging = false;
     hasMoved = false;
   });
-  
+
   // ================= Keyboard Scrolling (Optional) =================
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;

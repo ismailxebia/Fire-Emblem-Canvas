@@ -12,7 +12,7 @@
       "magicSkill": "Fireball",
       "attackRange": 1,
       "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
+      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Orlandeau.png",
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroA_portrait.png",
       "col": 2,
       "row": 2
@@ -34,42 +34,6 @@
       "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroB_portrait.png",
       "col": 3,
       "row": 2
-    },
-    {
-      "id": "hero3",
-      "name": "HeroC",
-      "level": 1,
-      "star": 1,
-      "hp": 80,
-      "atk": 25,
-      "spd": 14,
-      "def": 6,
-      "res": 4,
-      "magicSkill": "Lightning Strike",
-      "attackRange": 1,
-      "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroC_portrait.png",
-      "col": 2,
-      "row": 3
-    },
-    {
-      "id": "hero4",
-      "name": "HeroD",
-      "level": 1,
-      "star": 1,
-      "hp": 70,
-      "atk": 15,
-      "spd": 11,
-      "def": 7,
-      "res": 3,
-      "magicSkill": "Heal",
-      "attackRange": 1,
-      "hexRange": 3,
-      "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/HeroD_portrait.png",
-      "col": 3,
-      "row": 3
     }
   ]
   
