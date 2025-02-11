@@ -1,11 +1,12 @@
 // js/battle.js
+
 import { Hero } from './entities/hero.js';
 import { Enemy } from './entities/enemy.js';
 
-/**
- * Fungsi smoothStep: mengembalikan nilai interpolasi smooth dari 0 ke 1.
- * Jika x <= edge0, maka 0; jika x >= edge1, maka 1; di antaranya, interpolasi smooth.
- */
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
 function smoothStep(edge0, edge1, x) {
   let t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
@@ -14,7 +15,6 @@ function smoothStep(edge0, edge1, x) {
 /**
  * Fungsi A* sederhana untuk pathfinding dengan dukungan obstacle dan batas range.
  * Menggunakan Manhattan distance sebagai heuristic.
- * 
  * @param {object} grid - Objek grid dengan properti: cols, rows, getCellPosition(col, row) dan obstacles.
  * @param {object} start - Objek { col, row } sebagai titik awal.
  * @param {object} goal - Objek { col, row } sebagai titik tujuan.
@@ -131,15 +131,12 @@ export default class Battle {
     this.actionMode = 'normal'; // 'normal', 'selected', atau 'move'
     this.pendingMove = null;    // { hero, originalPosition: {col, row}, newPosition: {col, row} }
 
-    // Bind fungsi findPath sehingga enemy dianggap sebagai obstacle
     this.findPath = (grid, start, goal, maxRange) => {
       return findPath(grid, start, goal, maxRange, this.enemies);
     };
 
-    // Properti untuk animasi overlay hex range (efek gelombang)
     this.hexOverlayProgress = 0; // Nilai 0 = overlay tidak terlihat, 1 = overlay penuh
 
-    // Preload gambar indikator kustom untuk unit yang dipilih
     this.indicatorImage = new Image();
     this.indicatorImage.src = 'assets/Selected.png';
   }
@@ -171,10 +168,11 @@ export default class Battle {
       const origin = this.pendingMove.originalPosition;
       const range = this.pendingMove.hero.movementRange;
       // Parameter untuk animasi gelombang: delay per cell dan durasi transisi tiap cell.
-      const delayFactor = 0.15;         // Delay per unit jarak
-      const activationDuration = 0.15;    // Durasi transisi tiap cell
-
-      // Render overlay untuk setiap cell dalam jangkauan.
+      const delayFactor = 0.2;         
+      const activationDuration = 0.3;    
+      
+      const easedGlobalProgress = easeInOutQuad(this.hexOverlayProgress);
+      
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
@@ -182,40 +180,32 @@ export default class Battle {
           if (distance <= range) {
             const cellPos = this.grid.getCellPosition(c, r);
             ctx.save();
-            // Hitung delay untuk cell berdasarkan jarak
             const cellDelay = distance * delayFactor;
-            // Gunakan smoothStep untuk fade in/out; cellProgress dari 0 ke 1
-            const cellProgress = smoothStep(cellDelay, cellDelay + activationDuration, this.hexOverlayProgress);
-            // Tentukan base intensitas overlay (konstan) untuk cell yang dapat dijangkau:
-            // Jika cell tidak dapat dijangkau (path tidak valid), gunakan warna merah transparent.
+            // Gunakan smoothStep untuk menghitung cellProgress (interpolasi easing per cell)
+            const cellProgress = Math.min(Math.max((easedGlobalProgress - cellDelay) / activationDuration, 0), 1);
+            const finalProgress = cellProgress === 1 ? 1 : cellProgress;
+            
+            const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
+                                  this.enemies.find(e => e.col === c && e.row === r);
+            // Tentukan warna overlay berdasarkan validitas cell (dengan pathfinding)
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
-            let baseAlpha;
-            let baseColor;
+            let baseAlpha, baseColor;
             if (cellPath.length === 0 || (cellPath.length - 1) > range) {
               baseAlpha = 0.3;
               baseColor = '255,0,0'; // Merah untuk tidak dapat dijangkau
             } else {
-              // Jika ditempati oleh unit (ally atau enemy), intensitas lebih rendah
-              const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
-                                      this.enemies.find(e => e.col === c && e.row === r);
               if (occupyingUnit) {
                 baseAlpha = 0.15;
               } else {
-                baseAlpha = 0.3; // Untuk cell kosong yang dapat dijangkau, kita gunakan 0.3 (atau 0.35 jika diinginkan)
+                baseAlpha = 0.3;
               }
               baseColor = '0,0,255';
             }
-            // Final overlay alpha adalah baseAlpha, tetapi hanya muncul jika cellProgress mencapai 1.
-            // Jika tidak, kita gunakan interpolasi dari 0 ke baseAlpha.
-            const finalAlpha = cellProgress * baseAlpha;
+            const finalAlpha = finalProgress * baseAlpha;
             ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
             ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
             
-            // Jika cell kosong dan sudah full aktif, tambahkan outline dengan warna biru (atau putih sesuai permintaan sebelumnya).
-            if (!(
-              this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
-              this.enemies.find(e => e.col === c && e.row === r)
-            ) && cellProgress === 1) {
+            if (!occupyingUnit && cellProgress === 1) {
               ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
               ctx.lineWidth = 2;
               ctx.strokeRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
@@ -225,7 +215,6 @@ export default class Battle {
         }
       }
       
-      // Render Path Line (jika target dipilih) di atas overlay, namun di bawah unit
       if (this.pendingMove.newPosition) {
         const goal = this.pendingMove.newPosition;
         const maxRange = this.pendingMove.hero.movementRange;
