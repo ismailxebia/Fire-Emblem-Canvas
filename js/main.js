@@ -12,14 +12,16 @@ ctx.mozImageSmoothingEnabled = false;
 
 const canvasContainer = document.getElementById('canvasContainer');
 canvasContainer.addEventListener('scroll', () => {
-  // Set camera.y sesuai scrollTop
-  window.gameInstance.camera.y = canvasContainer.scrollTop;
+  const scrollTop = canvasContainer.scrollTop;
+  const maxScroll = canvasContainer.scrollHeight - canvasContainer.clientHeight;
+  const maxCamera = window.gameInstance.grid.stageHeight - canvasContainer.clientHeight;
+  const ratio = maxScroll ? (maxCamera / maxScroll) : 1;
+  window.gameInstance.camera.y = scrollTop * ratio;
 });
 
 function resizeCanvas() {
   const statusContainer = document.getElementById('statusContainer');
   const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;
-  // Set container tinggi (full layar dikurangi tinggi status)
   const canvasContainer = document.getElementById('canvasContainer');
   canvasContainer.style.height = (window.innerHeight - statusHeight) + 'px';
 
