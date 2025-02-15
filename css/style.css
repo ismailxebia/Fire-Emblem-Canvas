@@ -18,7 +18,7 @@ body {
 #canvasContainer {
     position: relative;
     overflow-y: auto;
-    /* Tinggi akan di-set di main.js agar sesuai dengan sisa layar */
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Styling untuk canvas agar memenuhi layar */
