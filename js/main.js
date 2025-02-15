@@ -23,15 +23,16 @@ function resizeCanvas() {
   const statusContainer = document.getElementById('statusContainer');
   const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;
   const canvasContainer = document.getElementById('canvasContainer');
+  // Set container tinggi agar memenuhi sisa layar.
   canvasContainer.style.height = (window.innerHeight - statusHeight) + 'px';
 
-  // Kita atur canvas width sama dengan layar
+  // Atur lebar canvas
   canvas.width = window.innerWidth;
-  // Dan canvas height diatur sesuai grid stage (misalnya, grid.stageHeight)
-  // Jika grid belum diinisialisasi, gunakan container height sebagai fallback.
   if (window.gameInstance) {
     const stageHeight = window.gameInstance.grid.stageHeight;
-    canvas.height = stageHeight > (window.innerHeight - statusHeight) ? stageHeight : (window.innerHeight - statusHeight);
+    canvas.height = stageHeight > (window.innerHeight - statusHeight)
+      ? stageHeight
+      : (window.innerHeight - statusHeight);
   } else {
     canvas.height = window.innerHeight - statusHeight;
   }
