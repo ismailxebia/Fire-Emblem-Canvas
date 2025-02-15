@@ -17,12 +17,13 @@ body {
 /* Container untuk canvas */
 #canvasContainer {
     position: relative;
-    overflow: hidden; /* nonaktifkan native scrolling */
-    -webkit-overflow-scrolling: auto;
+    overflow: hidden;  /* nonaktifkan native scrolling; kita pakai drag */
+    -webkit-overflow-scrolling: touch;
     margin: 0;
     padding: 0;
 }
 
+/* Styling untuk canvas */
 #gameCanvas {
     display: block;
     width: 100%;
