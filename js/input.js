@@ -149,16 +149,15 @@ export function handleInput(game) {
     const currentY = e.touches[0].clientY;
     const dx = currentX - startX;
     const dy = currentY - startY;
-    if (!hasMoved && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
-      hasMoved = true;
-    }
-    if (hasMoved) {
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
       game.camera.x = clamp(game.camera.x - dx, 0, game.grid.stageWidth - game.canvas.width);
       game.camera.y = clamp(game.camera.y - dy, 0, game.grid.stageHeight - game.canvas.height);
       startX = currentX;
       startY = currentY;
+      
+      e.preventDefault();
     }
-    e.preventDefault();
   }, { passive: false });
 
   game.canvas.addEventListener('touchend', (e) => {
