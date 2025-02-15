@@ -10,6 +10,12 @@ ctx.imageSmoothingEnabled = false;
 ctx.webkitImageSmoothingEnabled = false;
 ctx.mozImageSmoothingEnabled = false;
 
+const canvasContainer = document.getElementById('canvasContainer');
+canvasContainer.addEventListener('scroll', () => {
+  // Set camera.y sesuai scrollTop
+  window.gameInstance.camera.y = canvasContainer.scrollTop;
+});
+
 function resizeCanvas() {
   const statusContainer = document.getElementById('statusContainer');
   const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;

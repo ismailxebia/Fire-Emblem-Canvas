@@ -144,24 +144,7 @@ export function handleInput(game) {
   });
 
   game.canvas.addEventListener('touchmove', (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
-    const dx = currentX - startX;
-    const dy = currentY - startY;
 
-    // Jika gerakan horizontal lebih besar dari vertikal, kita anggap itu dragging.
-    if (Math.abs(dx) > Math.abs(dy)) {
-      // Lakukan update kamera
-      game.camera.x = clamp(game.camera.x - dx, 0, game.grid.stageWidth - game.canvas.width);
-      game.camera.y = clamp(game.camera.y - dy, 0, game.grid.stageHeight - game.canvas.height);
-      startX = currentX;
-      startY = currentY;
-
-      // Mencegah default hanya jika gesture dianggap sebagai drag
-      e.preventDefault();
-    }
-    // Jika gerakan vertikal lebih dominan, biarkan event berjalan untuk scroll container.
   }, { passive: false });
 
 
