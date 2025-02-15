@@ -144,9 +144,22 @@ export function handleInput(game) {
   });
 
   game.canvas.addEventListener('touchmove', (e) => {
-
+    if (!isDragging || e.touches.length !== 1) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const dx = currentX - startX;
+    const dy = currentY - startY;
+    if (!hasMoved && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
+      hasMoved = true;
+    }
+    if (hasMoved) {
+      game.camera.x = clamp(game.camera.x - dx, 0, game.grid.stageWidth - game.canvas.width);
+      game.camera.y = clamp(game.camera.y - dy, 0, game.grid.stageHeight - game.canvas.height);
+      startX = currentX;
+      startY = currentY;
+    }
+    e.preventDefault();
   }, { passive: false });
-
 
   game.canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
@@ -157,20 +170,20 @@ export function handleInput(game) {
       const y = touch.clientY - rect.top;
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
-
+      
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
-
+  
         const occupyingUnit = getUnitAtCell(col, row);
         if (occupyingUnit && occupyingUnit !== game.battle.selectedHero) return;
-
+  
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
         if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
-
+  
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
@@ -220,7 +233,7 @@ export function handleInput(game) {
     isDragging = false;
     hasMoved = false;
   });
-
+  
   // ================= Keyboard Scrolling (Optional) =================
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;

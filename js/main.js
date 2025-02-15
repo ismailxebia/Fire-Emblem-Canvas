@@ -10,29 +10,21 @@ ctx.imageSmoothingEnabled = false;
 ctx.webkitImageSmoothingEnabled = false;
 ctx.mozImageSmoothingEnabled = false;
 
-const canvasContainer = document.getElementById('canvasContainer');
-canvasContainer.addEventListener('scroll', () => {
-  const scrollTop = canvasContainer.scrollTop;
-  const maxScroll = canvasContainer.scrollHeight - canvasContainer.clientHeight;
-  const maxCamera = window.gameInstance.grid.stageHeight - canvasContainer.clientHeight;
-  const ratio = maxScroll ? (maxCamera / maxScroll) : 1;
-  window.gameInstance.camera.y = scrollTop * ratio;
-});
 
 function resizeCanvas() {
   const statusContainer = document.getElementById('statusContainer');
   const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;
+  // Set container tinggi (full layar dikurangi tinggi status)
   const canvasContainer = document.getElementById('canvasContainer');
-  // Set container tinggi agar memenuhi sisa layar.
   canvasContainer.style.height = (window.innerHeight - statusHeight) + 'px';
 
-  // Atur lebar canvas
+  // Kita atur canvas width sama dengan layar
   canvas.width = window.innerWidth;
+  // Dan canvas height diatur sesuai grid stage (misalnya, grid.stageHeight)
+  // Jika grid belum diinisialisasi, gunakan container height sebagai fallback.
   if (window.gameInstance) {
     const stageHeight = window.gameInstance.grid.stageHeight;
-    canvas.height = stageHeight > (window.innerHeight - statusHeight)
-      ? stageHeight
-      : (window.innerHeight - statusHeight);
+    canvas.height = stageHeight > (window.innerHeight - statusHeight) ? stageHeight : (window.innerHeight - statusHeight);
   } else {
     canvas.height = window.innerHeight - statusHeight;
   }
