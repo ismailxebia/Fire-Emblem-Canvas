@@ -17,10 +17,9 @@ body {
 /* Container untuk canvas */
 #canvasContainer {
     position: relative;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
-/* Styling untuk canvas agar memenuhi layar */
 #gameCanvas {
     display: block;
     width: 100%;
