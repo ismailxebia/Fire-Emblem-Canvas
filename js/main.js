@@ -13,7 +13,6 @@ ctx.mozImageSmoothingEnabled = false;
 function resizeCanvas() {
   const statusContainer = document.getElementById('statusContainer');
   const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;
-  // Set container tinggi (full layar dikurangi tinggi status)
   const canvasContainer = document.getElementById('canvasContainer');
   canvasContainer.style.height = (window.innerHeight - statusHeight) + 'px';
 

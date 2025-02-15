@@ -17,7 +17,10 @@ body {
 /* Container untuk canvas */
 #canvasContainer {
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* nonaktifkan native scrolling */
+    -webkit-overflow-scrolling: auto;
+    margin: 0;
+    padding: 0;
 }
 
 #gameCanvas {
