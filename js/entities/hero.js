@@ -16,6 +16,8 @@ const ACTION_CONFIG = {
 
 export class Hero {
   /**
+   * Konstruktor Hero
+   * Parameter:
    * @param {string} name - Nama hero.
    * @param {number} col - Posisi kolom pada grid.
    * @param {number} row - Posisi baris pada grid.
@@ -23,8 +25,27 @@ export class Hero {
    * @param {number} attack - Nilai serangan.
    * @param {number} movementRange - Jangkauan pergerakan (dalam cell), default 3.
    * @param {string} spriteUrl - URL spritesheet terpadu hero.
+   * @param {number} level - Level hero.
+   * @param {number} star - Jumlah bintang/evolusi.
+   * @param {number} spd - Kecepatan.
+   * @param {number} def - Pertahanan.
+   * @param {number} res - Resistensi.
    */
-  constructor(name, col, row, health, attack, movementRange = 3, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png") {
+  constructor(
+    name,
+    col,
+    row,
+    health,
+    attack,
+    movementRange = 3,
+    spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C.png",
+    portraitUrl = "https://via.placeholder.com/80",
+    level = 1,
+    star = 1,
+    spd,
+    def,
+    res
+  ) {
     this.name = name;
     this.col = col;
     this.row = row;
@@ -32,9 +53,17 @@ export class Hero {
     this.attack = attack;
     this.movementRange = movementRange;
     this.moveSpeed = DEFAULT_MOVE_SPEED;
-    
+
+    // Properti tambahan dari JSON
+    this.level = level;
+    this.star = star;
+    this.spd = spd;       // Pastikan nilai ini dioper dari JSON
+    this.def = def;       // Pastikan nilai ini dioper dari JSON
+    this.res = res;       // Pastikan nilai ini dioper dari JSON
+
     // Pemuatan spritesheet terpadu
     this.spriteUrl = spriteUrl;
+    this.portraitUrl = portraitUrl;
     this.image = new Image();
     this.image.src = spriteUrl;
     this.image.onload = () => {
@@ -58,7 +87,7 @@ export class Hero {
     this.currentAction = 'idle'; // Default aksi adalah "idle"
     this.frameIndex = 0;
     this.frameTimer = 0;
-    this.frameInterval = 200; // Interval per frame dalam milidetik (sesuaikan sesuai kebutuhan)
+    this.frameInterval = 200; // Interval per frame (ms)
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)
@@ -85,9 +114,7 @@ export class Hero {
 
   // Update animasi perpindahan hero dan animasi spritesheet
   update(deltaTime, grid) {
-    // Update animasi spritesheet (misalnya, untuk keadaan idle, attack, atau magicIdle)
     this.updateAnimation(deltaTime);
-
     if (!this.isMoving) {
       const pos = grid.getCellPosition(this.col, this.row);
       this.pixelX = pos.x;
@@ -108,7 +135,6 @@ export class Hero {
 
   // Update frame animasi berdasarkan deltaTime
   updateAnimation(deltaTime) {
-    // Dapatkan konfigurasi untuk aksi saat ini; fallback ke idle jika tidak tersedia.
     const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
     this.frameTimer += deltaTime;
     if (this.frameTimer >= this.frameInterval) {
@@ -118,35 +144,22 @@ export class Hero {
   }
 
   // Render hero menggunakan spritesheet terpadu.
-  // Render dengan posisi interpolasi (this.pixelX, this.pixelY) agar animasi perpindahan terlihat,
-  // di-align horizontal center dan bottom pada cell grid, dan gambar diskalakan agar tinggi mencapai 115% dari grid.tileSize.
   render(ctx, grid, camera) {
-    // Ambil posisi render berdasarkan interpolasi
     const pos = { x: this.pixelX, y: this.pixelY };
-    // Hitung center dan bottom dari cell (menggunakan nilai interpolasi)
     const cellCenterX = pos.x + grid.tileSize / 2 - camera.x;
     const cellBottomY = pos.y + grid.tileSize - camera.y;
 
     if (this.image.complete && this.image.naturalWidth > 0) {
-      // Konfigurasi aksi (default idle, attack, magicIdle)
       const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
-      // Tentukan baris pada spritesheet berdasarkan aksi
       const rowIndex = config.row;
-      
-      // Desired tinggi adalah 115% dari grid.tileSize
       const desiredHeight = grid.tileSize * 1.2;
       const scale = desiredHeight / FRAME_HEIGHT;
       const imgHeight = FRAME_HEIGHT * scale;
       const imgWidth = FRAME_WIDTH * scale;
-      
-      // Hitung offset source pada spritesheet
       const sourceX = this.frameIndex * FRAME_WIDTH;
       const sourceY = rowIndex * FRAME_HEIGHT;
-      
-      // Hitung posisi render agar horizontal center dan bottom aligned
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
-      
       ctx.drawImage(
         this.image,
         sourceX, sourceY, FRAME_WIDTH, FRAME_HEIGHT,

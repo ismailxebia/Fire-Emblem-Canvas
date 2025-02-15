@@ -1,30 +1,72 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game Tactical RPG</title>
-  <link rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Tactical RPG</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
+
 </head>
+
 <body>
-  <!-- Canvas untuk rendering game -->
-  <canvas id="gameCanvas"></canvas>
+    <!-- Status Container: Section untuk menampilkan profile status hero & enemy -->
+    <div id="statusContainer">
+        <div id="profileStatus">
+            <div class="portrait">
+                <img id="heroPortrait" src="https://via.placeholder.com/80" alt="Hero">
+            </div>
+            <div class="column statsColumn">
+                <div class="name">Hero Name</div>
+                <div class="stat">HP: 10/10</div>
+                <div class="attribute">
+                    <div class="stat">ATK : 30</div>
+                    <div class="stat">SPD : 10</div>
+                </div>
+                <div class="attribute">
+                    <div class="stat">DEF : 10</div>
+                    <div class="stat">RES : 10</div>
+                </div>
+            </div>
+            <div class="column levelSkillColumn">
+                <div class="level-star">
+                    <span class="heroLevel">LV: 10</span>
+                    <span class="heroStars">[★ ★ ★]</span>
+                </div>
+                <div class="skills">
+                    <div class="skill">Skill Name 1</div>
+                    <div class="skill">Skill Name 2</div>
+                    <div class="skill">Skill Name 3</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-  <!-- Floating action menu untuk hero yang dipilih -->
-  <div id="actionMenu" style="display:none; position: absolute; left: 10px; top: 10px; background: #ddd; padding: 10px; border: 1px solid #aaa;">
-    <button id="btnMove">Move</button>
-    <button id="btnWait">Wait</button>
-    <button id="btnAttack">Attack</button>
-    <button id="btnMagic">Magic</button>
-  </div>
+    <div id="canvasContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
-  <!-- Floating confirm menu untuk move -->
-  <div id="confirmMenu" style="display:none; position: absolute; left: 10px; top: 70px; background: #ccc; padding: 10px; border: 1px solid #888;">
-    <button id="btnConfirm">Confirm</button>
-    <button id="btnCancel">Cancel</button>
-  </div>
+    <!-- Floating action menu untuk hero yang dipilih -->
+    <div id="actionMenu"
+        style="display:none; position: absolute; left: 10px; top: 10px; background: #ddd; padding: 10px; border: 1px solid #aaa; z-index: 1001;">
+        <button id="btnMove">Move</button>
+        <button id="btnWait">Wait</button>
+        <button id="btnAttack">Attack</button>
+        <button id="btnMagic">Magic</button>
+    </div>
 
-  <!-- Memuat file JavaScript utama -->
-  <script type="module" src="js/main.js"></script>
+    <!-- Floating confirm menu untuk move -->
+    <div id="confirmMenu"
+        style="display:none; position: absolute; left: 10px; top: 70px; background: #ccc; padding: 10px; border: 1px solid #888;">
+        <button id="btnConfirm">Confirm</button>
+        <button id="btnCancel">Cancel</button>
+    </div>
+
+    <!-- Memuat file JavaScript utama -->
+    <script type="module" src="js/main.js"></script>
 </body>
+
 </html>

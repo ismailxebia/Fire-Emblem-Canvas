@@ -17,7 +17,13 @@ export async function loadHeroData() {
         data.hp,
         data.atk,
         data.hexRange,  // atau data.movementRange, sesuai kebutuhan
-        data.spriteUrl
+        data.spriteUrl,
+        data.portraitUrl,
+        data.level,
+        data.star,
+        data.spd,
+        data.def,
+        data.res
       );
     });
     return heroes;

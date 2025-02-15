@@ -5,16 +5,27 @@ import { setupActionMenu } from './ui.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-// Nonaktifkan image smoothing agar pixel art tampil jelas (pixelated)
+
 ctx.imageSmoothingEnabled = false;
 ctx.webkitImageSmoothingEnabled = false;
 ctx.mozImageSmoothingEnabled = false;
 
 function resizeCanvas() {
+  const statusContainer = document.getElementById('statusContainer');
+  const statusHeight = statusContainer ? statusContainer.offsetHeight : 0;
+  // Set container tinggi (full layar dikurangi tinggi status)
+  const canvasContainer = document.getElementById('canvasContainer');
+  canvasContainer.style.height = (window.innerHeight - statusHeight) + 'px';
+
+  // Kita atur canvas width sama dengan layar
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  // Dan canvas height diatur sesuai grid stage (misalnya, grid.stageHeight)
+  // Jika grid belum diinisialisasi, gunakan container height sebagai fallback.
   if (window.gameInstance) {
-    window.gameInstance.grid.updateDimensions(canvas.width);
+    const stageHeight = window.gameInstance.grid.stageHeight;
+    canvas.height = stageHeight > (window.innerHeight - statusHeight) ? stageHeight : (window.innerHeight - statusHeight);
+  } else {
+    canvas.height = window.innerHeight - statusHeight;
   }
 }
 
@@ -31,4 +42,3 @@ function gameLoop(timestamp) {
 }
 
 requestAnimationFrame(gameLoop);
- 

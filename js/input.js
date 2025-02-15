@@ -1,7 +1,29 @@
 // js/input.js
+import { updateProfileStatus } from './ui.js';
+
 export function handleInput(game) {
   function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
+  }
+
+  // Helper: mencari hero di cell tertentu
+  function getHeroAtCell(col, row) {
+    for (let hero of game.battle.heroes) {
+      if (hero.col === col && hero.row === row) return hero;
+    }
+    return null;
+  }
+
+  // Helper: mencari unit (hero atau enemy) di cell tertentu
+  function getUnitAtCell(col, row) {
+    // Cek hero
+    const hero = getHeroAtCell(col, row);
+    if (hero) return hero;
+    // Cek enemy
+    for (let enemy of game.battle.enemies) {
+      if (enemy.col === col && enemy.row === row) return enemy;
+    }
+    return null;
   }
 
   let isDragging = false;
@@ -9,27 +31,6 @@ export function handleInput(game) {
   let startY = 0;
   let hasMoved = false;
   const dragThreshold = 5;
-
-  // Helper: mencari unit (hero atau enemy) di cell tertentu
-  function getUnitAtCell(col, row) {
-    // Cari hero
-    for (let hero of game.battle.heroes) {
-      if (hero.col === col && hero.row === row) return hero;
-    }
-    // Cari enemy
-    for (let enemy of game.battle.enemies) {
-      if (enemy.col === col && enemy.row === row) return enemy;
-    }
-    return null;
-  }
-
-  // Helper: mencari hero saja (untuk seleksi normal)
-  function getHeroAtCell(col, row) {
-    for (let hero of game.battle.heroes) {
-      if (hero.col === col && hero.row === row) return hero;
-    }
-    return null;
-  }
 
   // ================= Mouse Events (Desktop) =================
   game.canvas.addEventListener('mousedown', (e) => {
@@ -64,30 +65,27 @@ export function handleInput(game) {
 
       // MODE MOVE: jika hero sudah dipilih dan mode aksi adalah 'move'
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Ambil titik awal (origin) dari pendingMove jika ada, atau dari posisi hero saat ini
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
 
-        // Periksa jarak Manhattan dari origin ke target
         const manhattanDistance = Math.abs(col - origin.col) + Math.abs(row - origin.row);
         if (manhattanDistance > game.battle.selectedHero.movementRange) return;
 
-        // Cek apakah cell target sudah ditempati oleh unit lain (baik hero maupun enemy)
+        // Cek apakah cell target sudah ditempati oleh unit lain (hero atau enemy)
         const occupyingUnit = getUnitAtCell(col, row);
         if (occupyingUnit && occupyingUnit !== game.battle.selectedHero) return;
 
-        // Gunakan fungsi pathfinding untuk memastikan target cell dapat dijangkau
         const path = game.battle.findPath(game.grid, origin, { col, row }, game.battle.selectedHero.movementRange);
         if (path.length === 0 || (path.length - 1) > game.battle.selectedHero.movementRange) return;
 
-        // Jika klik pada cell yang sama dengan posisi preview hero, batalkan mode move
         if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
+          // Update status profil menjadi kosong
+          updateProfileStatus(null);
         } else {
-          // Simpan pendingMove (simpan original dan update newPosition)
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
               hero: game.battle.selectedHero,
@@ -102,6 +100,8 @@ export function handleInput(game) {
           }
           game.battle.selectedHero.startMove(game.grid, col, row);
           document.getElementById('confirmMenu').style.display = 'block';
+          // Karena masih dalam mode move, status tetap menunjukkan unit yang sedang dipilih
+          updateProfileStatus(game.battle.selectedHero);
         }
       }
       // MODE NORMAL: proses seleksi/deseleksi hero
@@ -112,16 +112,19 @@ export function handleInput(game) {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
+            updateProfileStatus(null);
           } else {
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
             document.getElementById('actionMenu').style.display = 'block';
+            updateProfileStatus(clickedHero);
           }
         } else {
           if (game.battle.actionMode === 'selected') {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
+            updateProfileStatus(null);
           }
         }
       }
@@ -185,6 +188,7 @@ export function handleInput(game) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
+          updateProfileStatus(null);
         } else {
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
@@ -200,6 +204,7 @@ export function handleInput(game) {
           }
           game.battle.selectedHero.startMove(game.grid, col, row);
           document.getElementById('confirmMenu').style.display = 'block';
+          updateProfileStatus(game.battle.selectedHero);
         }
       } else {
         const clickedHero = getHeroAtCell(col, row);
@@ -208,16 +213,19 @@ export function handleInput(game) {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
+            updateProfileStatus(null);
           } else {
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
             document.getElementById('actionMenu').style.display = 'block';
+            updateProfileStatus(clickedHero);
           }
         } else {
           if (game.battle.actionMode === 'selected') {
             game.battle.selectedHero = null;
             game.battle.actionMode = 'normal';
             document.getElementById('actionMenu').style.display = 'none';
+            updateProfileStatus(null);
           }
         }
       }
@@ -225,7 +233,7 @@ export function handleInput(game) {
     isDragging = false;
     hasMoved = false;
   });
-
+  
   // ================= Keyboard Scrolling (Optional) =================
   window.addEventListener('keydown', (e) => {
     const scrollSpeed = 20;

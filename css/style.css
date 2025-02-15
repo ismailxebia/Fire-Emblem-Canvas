@@ -3,6 +3,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: "Jersey 20", serif;
 }
 
 /* Pastikan HTML dan body memenuhi layar */
@@ -10,13 +11,20 @@ html,
 body {
     width: 100%;
     height: 100%;
+    font-family: "Jersey 20", serif;
+}
+
+/* Container untuk canvas */
+#canvasContainer {
+    position: relative;
+    overflow-y: auto;
+    /* Tinggi akan di-set di main.js agar sesuai dengan sisa layar */
 }
 
 /* Styling untuk canvas agar memenuhi layar */
 #gameCanvas {
     display: block;
     width: 100%;
-    height: 100%;
     background-color: #ffffff;
     /* Bisa diganti dengan background image jika perlu */
     touch-action: none;
@@ -24,4 +32,83 @@ body {
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
     -webkit-image-rendering: pixelated;
+}
+
+/* Status container: tetap di atas, full width */
+#statusContainer {
+    width: 100%;
+    background: linear-gradient(to right, #4c0000, #1d0000);
+    color: #fff;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 1000;
+}
+
+/* Layout untuk profile status */
+#profileStatus {
+    display: flex;
+    flex-direction: row;
+    align-items: start;
+    justify-content: start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Potrait */
+.portrait {
+    flex: 0 0 auto;
+}
+
+.portrait img {
+    width: 80px;
+    height: auto;
+    border-radius: 5px;
+}
+
+/* Kolom status */
+.column {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 10px;
+    flex: 1;
+}
+
+/* Stats Column: menampilkan Name di atas HP dan statistik */
+.statsColumn .name {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.statsColumn .stat {
+    font-size: 1.1em;
+}
+
+.statsColumn .attribute {
+    display: flex;
+    gap: 10px;
+}
+
+/* Level & Skill Column */
+.levelSkillColumn .level-star {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.levelSkillColumn .skills {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.levelSkillColumn .skill {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
 }
