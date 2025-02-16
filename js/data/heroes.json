@@ -3,7 +3,7 @@
     "id": "hero1",
     "name": "Leonardo",
     "level": 1,
-    "star": 1,
+    "star": 3,
     "hp": 100,
     "atk": 20,
     "spd": 10,

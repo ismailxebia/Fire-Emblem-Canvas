@@ -41,3 +41,13 @@ function gameLoop(timestamp) {
 }
 
 requestAnimationFrame(gameLoop);
+
+window.addEventListener('load', () => {
+  // Deteksi perangkat mobile (Android/iPhone/iPad)
+  if (/Android|iPhone|iPad/.test(navigator.userAgent) && !sessionStorage.getItem('autoReloadDone')) {
+    sessionStorage.setItem('autoReloadDone', 'true');
+    setTimeout(() => {
+      window.location.reload();
+    }, 50);
+  }
+});

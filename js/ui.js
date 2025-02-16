@@ -26,7 +26,6 @@ export function setupActionMenu(game) {
       game.battle.selectedHero.waited = true;
     }
     actionMenu.style.display = 'none';
-    // Tidak memanggil updateProfileStatus(null) agar data sebelumnya tetap dipertahankan.
     game.battle.selectedHero = null;
     game.battle.actionMode = 'normal';
   });
@@ -62,55 +61,56 @@ export function setupActionMenu(game) {
   });
 }
 
-/**
- * updateProfileStatus: Mengupdate konten status profil berdasarkan unit yang dipilih.
- * Jika unit bernilai null, fungsi ini tidak melakukan perubahan sehingga data sebelumnya tetap terlihat.
- */
 export function updateProfileStatus(unit) {
-  // Ambil elemen-elemen DOM yang diperlukan.
+  // Ambil elemen-elemen DOM yang diperlukan dari status container baru
   const portraitImg = document.getElementById('heroPortrait');
-  const nameElem = document.querySelector('#profileStatus .statsColumn .name');
-  const statsColumn = document.querySelector('#profileStatus .statsColumn');
-  const levelStarElem = document.querySelector('#profileStatus .levelSkillColumn .level-star');
-  const skillsContainer = document.querySelector('#profileStatus .levelSkillColumn .skills');
+  const levelTagElem = document.querySelector('.portrait .levelTag');
+  const heroNameElem = document.querySelector('.heroName');
+  const starsContainer = document.querySelector('.stars');
+  const hpFillElem = document.querySelector('.hpFill');
+  const hpValueElem = document.querySelector('.hpValue');
+  const attributesContainer = document.querySelector('.attributes');
 
-  // Jika unit null, jangan ubah konten (biarkan data sebelumnya)
-  if (!unit) {
-    return;
-  }
+  // Jika unit null, kita bisa mengosongkan atau tidak mengubah status (sesuai keinginan)
+  if (!unit) return;
 
+  // Update portrait: gunakan portraitUrl jika ada, atau fallback ke spriteUrl
   portraitImg.src = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
-  nameElem.textContent = unit.name || 'Unknown';
 
-  // Update statistik unit (gunakan properti yang ada, dengan fallback default)
-  const hpText = `HP: ${unit.health}/${unit.maxHealth || unit.health}`;
-  const atkText = `ATK : ${unit.attack}`;
-  const spdText = `SPD : ${unit.spd}`;
-  const defText = `DEF : ${unit.def}`;
-  const resText = `RES : ${unit.res}`;
-  statsColumn.innerHTML = `
-      <div class="name">${unit.name || 'Unknown'}</div>
-      <div class="stat">${hpText}</div>
-      <div class="attribute">
-        <div class="stat">${atkText}</div>
-        <div class="stat">${spdText}</div>
-      </div>
-      <div class="attribute">
-        <div class="stat">${defText}</div>
-        <div class="stat">${resText}</div>
-      </div>
-    `;
-  // Update level dan stars – asumsikan properti "level" dan "stars" ada.
-  levelStarElem.innerHTML = `<span class="heroLevel">LV: ${unit.level || 1}</span>
-      <span class="heroStars">${unit.stars ? '★'.repeat(unit.stars) : '★'}</span>`;
-  // Update skills – jika unit memiliki array "skills", tampilkan; jika tidak, gunakan placeholder.
-  if (unit.skills && unit.skills.length > 0) {
-    skillsContainer.innerHTML = unit.skills.map(skill => `<div class="skill">${skill.name}</div>`).join('');
-  } else {
-    skillsContainer.innerHTML = `
-        <div class="skill">Skill 1</div>
-        <div class="skill">Skill 2</div>
-        <div class="skill">Skill 3</div>
-      `;
+  // Update level tag (misalnya "LV 12")
+  levelTagElem.textContent = `LV ${unit.level || 1}`;
+
+  // Update hero name
+  heroNameElem.textContent = unit.name || 'Unknown';
+
+  // Update stars: Misalnya, tampilkan bintang aktif sesuai jumlah star unit
+  // Asumsikan unit.star adalah angka, dan maksimal bintang adalah 3
+  let starHTML = '';
+  const maxStars = 3;
+  const activeStars = unit.star || 1;
+  for (let i = 0; i < maxStars; i++) {
+    if (i < activeStars) {
+      starHTML += '<img src="assets/star-on.svg" alt="Star On" class="star on">';
+    } else {
+      starHTML += '<img src="assets/star-off.svg" alt="Star Off" class="star off">';
+    }
   }
+  starsContainer.innerHTML = starHTML;
+
+  // Update HP bar: Hitung persentase HP
+  const currentHP = unit.health;
+  const maxHP = unit.maxHealth || unit.health; // fallback jika maxHealth tidak ada
+  const hpPercent = (currentHP / maxHP) * 100;
+  hpFillElem.style.width = `${hpPercent}%`;
+
+  // Update nilai HP numerik
+  hpValueElem.textContent = `${currentHP} / ${maxHP}`;
+
+  // Update attributes: asumsikan unit memiliki properti atk, def, spd, res
+  attributesContainer.innerHTML = `
+    <span class="stat">ATK : ${unit.attack || 0}</span>
+    <span class="stat">DEF : ${unit.def || 0}</span>
+    <span class="stat">SPD : ${unit.spd || 0}</span>
+    <span class="stat">RES : ${unit.res || 0}</span>
+  `;
 }

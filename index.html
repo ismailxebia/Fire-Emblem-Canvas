@@ -16,34 +16,41 @@
     <!-- Status Container: Section untuk menampilkan profile status hero & enemy -->
     <div id="statusContainer">
         <div id="profileStatus">
-            <div class="portrait">
-                <img id="heroPortrait" src="https://via.placeholder.com/80" alt="Hero">
+          <!-- Bagian portrait + level tag -->
+          <div class="portrait">
+            <div class="levelTag">LV 12</div>
+            <img id="heroPortrait" src="https://ik.imagekit.io/ij05ikv7z/Hero/pot-orlandeau.png" alt="Hero">
+          </div>
+      
+          <!-- Bagian info hero (nama, star, HP bar, stat) -->
+          <div class="infoContainer">
+            <div class="nameStars">
+              <div class="heroName textStroke">Leonardo</div>
+              <div class="stars">
+                <img src="assets/star_on.png" alt="Star On" class="star on">
+                <img src="assets/star_on.png" alt="Star On" class="star on">
+                <img src="assets/star_off.png" alt="Star Off" class="star off">
+              </div>
             </div>
-            <div class="column statsColumn">
-                <div class="name">Hero Name</div>
-                <div class="stat">HP: 10/10</div>
-                <div class="attribute">
-                    <div class="stat">ATK : 30</div>
-                    <div class="stat">SPD : 10</div>
-                </div>
-                <div class="attribute">
-                    <div class="stat">DEF : 10</div>
-                    <div class="stat">RES : 10</div>
-                </div>
+      
+            <div class="hpBarContainer">
+              <span class="hpLabel textStroke">HP</span>
+              <div class="hpBar">
+                <div class="hpFill textStroke" style="width: 40%;"></div>
+              </div>
+              <span class="hpValue">70 / 100</span>
             </div>
-            <div class="column levelSkillColumn">
-                <div class="level-star">
-                    <span class="heroLevel">LV: 10</span>
-                    <span class="heroStars">[★ ★ ★]</span>
-                </div>
-                <div class="skills">
-                    <div class="skill">Skill Name 1</div>
-                    <div class="skill">Skill Name 2</div>
-                    <div class="skill">Skill Name 3</div>
-                </div>
+      
+            <div class="attributes">
+              <span class="stat">ATK : 1.230</span>
+              <span class="stat">DEF : 90</span>
+              <span class="stat">SPD : 30</span>
+              <span class="stat">RES : 30</span>
             </div>
+          </div>
         </div>
-    </div>
+      </div>
+      
 
     <div id="canvasContainer">
         <canvas id="gameCanvas"></canvas>

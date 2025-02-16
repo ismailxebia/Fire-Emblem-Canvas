@@ -17,7 +17,8 @@ body {
 /* Container untuk canvas */
 #canvasContainer {
     position: relative;
-    overflow: hidden;  /* nonaktifkan native scrolling; kita pakai drag */
+    overflow: hidden;
+    /* nonaktifkan native scrolling; kita pakai drag */
     -webkit-overflow-scrolling: touch;
     margin: 0;
     padding: 0;
@@ -35,81 +36,173 @@ body {
     -webkit-image-rendering: pixelated;
 }
 
-/* Status container: tetap di atas, full width */
+/* --- Penyesuaian umum di status container --- */
 #statusContainer {
     width: 100%;
-    background: linear-gradient(to right, #4c0000, #1d0000);
+    background: #E8E5DA;
     color: #fff;
-    padding: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    padding: 12px;
     position: relative;
+    image-rendering: pixelated;
     z-index: 1000;
 }
 
-/* Layout untuk profile status */
+/* Layout profile status => portrait + infoContainer di samping */
 #profileStatus {
     display: flex;
     flex-direction: row;
-    align-items: start;
-    justify-content: start;
+    align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+    /* responsif untuk layar kecil */
 }
 
-/* Potrait */
+/* --- Portrait + Level Tag --- */
 .portrait {
+    position: relative;
     flex: 0 0 auto;
+    width: 80px;
+    height: 80px;
 }
 
 .portrait img {
-    width: 80px;
-    height: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     border-radius: 5px;
+    image-rendering: pixelated;
 }
 
-/* Kolom status */
-.column {
+/* Level Tag di pojok atas kiri portrait */
+.levelTag {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 3px 8px;
+    font-size: 0.9em;
+    border-bottom-right-radius: 12px;
+}
+
+/* --- Info Container: Hero Name, Stars, HP Bar, Attributes --- */
+.infoContainer {
     display: flex;
     flex-direction: column;
-    align-items: start;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
 }
 
-/* Stats Column: menampilkan Name di atas HP dan statistik */
-.statsColumn .name {
-    font-size: 1.3em;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.statsColumn .stat {
-    font-size: 1.1em;
-}
-
-.statsColumn .attribute {
+/* Nama + Star Rating */
+.nameStars {
     display: flex;
-    gap: 10px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }
 
-/* Level & Skill Column */
-.levelSkillColumn .level-star {
+/* Efek outline teks sederhana */
+.textStroke {
+    color: #ffffff;
+    text-shadow:
+        -1.5px -1.5px 0 #FFF,
+        1.5px -1.5px 0 #FFF,
+        -1.5px 1.5px 0 #FFF,
+        1.5px 1.5px 0 #FFF;
+}
+
+/* Nama hero */
+.heroName {
+    font-size: 1.2em;
+    color: #000;
+    font-weight: bold;
+}
+
+/* Bintang */
+.stars {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+}
+
+.star {
+    width: 14px;
+    height: 14px;
+    image-rendering: pixelated;
+}
+
+.star.off {
+    opacity: 0.3;
+}
+
+/* HP Bar Container */
+.hpBarContainer {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 1.3em;
+    gap: 8px;
+}
+
+/* HP Label */
+.hpLabel {
     font-weight: bold;
+    color: #000;
+    font-size: 1em;
 }
 
-.levelSkillColumn .skills {
+/* HP Bar */
+.hpBar {
+    position: relative;
+    flex: 1;
+    height: 8px;
+    background-color: #e0ded2;
+    clip-path: polygon(0px 0px,
+            calc(100% - 20px) 0px,
+            100% 0px,
+            100% calc(100% - 10px),
+            calc(100% - 10px) 100%,
+            0px 100%);
+}
+
+/* HP Fill */
+.hpFill {
+    position: relative;
+    width: 70%;
+    /* nilai default, akan diperbarui melalui JS */
+    height: 100%;
+    background: linear-gradient(to right, #B12D1E, #F48C06);
+    clip-path: inherit;
+}
+
+.hpFill::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: -10px;
+    width: 100%;
+    height: 100%;
+    background: url('https://ik.imagekit.io/ij05ikv7z/Hero/PatternLine.png') repeat;
+    pointer-events: none;
+}
+
+/* HP Value */
+.hpValue {
+    font-weight: bold;
+    font-size: 1em;
+    color: #000;
+}
+
+/* Attributes (ATK, DEF, SPD, RES) */
+.attributes {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2px;
 }
 
-.levelSkillColumn .skill {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 5px;
-    border-radius: 3px;
+.attributes .stat {
+    width: 100%;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.1);
     font-size: 0.9em;
+    color: #5A5851;
 }
