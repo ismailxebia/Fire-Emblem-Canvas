@@ -19,8 +19,9 @@ export class Enemy extends Unit {
    * @param {number} health - Nilai kesehatan.
    * @param {number} attack - Nilai serangan.
    * @param {string} spriteUrl - URL spritesheet terpadu enemy.
+   * @param {number} hexRange - Jangkauan hex untuk enemy (diambil dari JSON).
    */
-  constructor(name, col, row, health = 100, attack = 20, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png") {
+  constructor(name, col, row, health = 100, attack = 20, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png", hexRange = 3) {
     super(name, col, row, health, attack);
     this.spriteUrl = spriteUrl;
     this.image = new Image();
@@ -36,10 +37,10 @@ export class Enemy extends Unit {
     this.currentAction = 'idle'; // Default enemy selalu idle
     this.frameIndex = 0;
     this.frameTimer = 0;
-    this.frameInterval = 200; // Interval per frame (ms)
+    this.frameInterval = 200; // Interval per frame dalam milidetik
 
     // Properti untuk animasi pergerakan (mirip dengan hero)
-    // Posisi untuk render di canvas akan diperbarui melalui animasi pergerakan
+    // Enemy akan bergerak dengan animasi, menggunakan startMove()
     this.pixelX = 0;
     this.pixelY = 0;
     this.isMoving = false;
@@ -50,14 +51,16 @@ export class Enemy extends Unit {
     this.startPixelX = 0;
     this.startPixelY = 0;
 
-    // Flag untuk menandai bahwa enemy sudah bertindak pada turn ini.
+    // Flag untuk menandai apakah enemy sudah bertindak pada turn ini.
     this.actionTaken = false;
-    
-    // Misalnya, tetapkan movementRange default untuk enemy (bisa diatur dari data)
-    this.movementRange = 2; 
+
+    // Properti jangkauan untuk enemy (diambil dari JSON)
+    this.hexRange = hexRange;
+    // Gunakan hexRange sebagai movementRange agar enemy dapat bergerak agresif
+    this.movementRange = hexRange;
   }
 
-  // Fungsi easing sederhana untuk interpolasi (easeInOutQuad)
+  // Fungsi easing untuk interpolasi (easeInOutQuad)
   easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   }
@@ -84,14 +87,13 @@ export class Enemy extends Unit {
     const dx = this.targetPixelX - this.startPixelX;
     const dy = this.targetPixelY - this.startPixelY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    // Gunakan kecepatan yang sama seperti hero (DEFAULT_MOVE_SPEED) untuk pergerakan
+    // Gunakan kecepatan yang sama (misal, 850 pixel per detik) untuk enemy
     this.moveDuration = Math.max((distance / 850) * 1000, 150);
     this.moveProgress = 0;
     this.isMoving = true;
   }
 
   update(deltaTime, grid) {
-    // Jika enemy sedang bergerak, update posisi dengan interpolasi
     if (this.isMoving) {
       this.moveProgress += deltaTime / this.moveDuration;
       let t = Math.min(this.moveProgress, 1);
@@ -104,12 +106,10 @@ export class Enemy extends Unit {
         this.row = this.targetRow;
       }
     } else {
-      // Jika tidak bergerak, sinkronkan posisi dengan cell grid
       const pos = grid.getCellPosition(this.col, this.row);
       this.pixelX = pos.x;
       this.pixelY = pos.y;
     }
-    // Update animasi spritesheet
     this.updateAnimation(deltaTime);
   }
 
@@ -121,7 +121,6 @@ export class Enemy extends Unit {
     if (this.image.complete && this.image.naturalWidth > 0) {
       const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
       const rowIndex = config.row;
-      // Desired tinggi adalah 115% dari grid.tileSize
       const desiredHeight = grid.tileSize * 1.2;
       const scale = desiredHeight / FRAME_HEIGHT;
       const imgHeight = FRAME_HEIGHT * scale;
@@ -130,7 +129,6 @@ export class Enemy extends Unit {
       const sourceY = rowIndex * FRAME_HEIGHT;
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
-      // Terapkan efek grayscale jika enemy sudah bertindak
       let prevFilter = ctx.filter;
       if (this.actionTaken) {
         ctx.filter = "grayscale(100%)";

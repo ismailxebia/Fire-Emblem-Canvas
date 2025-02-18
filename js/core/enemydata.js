@@ -16,7 +16,8 @@ export async function loadEnemyData() {
         data.row,
         data.hp,
         data.atk,
-        data.spriteUrl  // Gunakan spriteUrl dari JSON
+        data.spriteUrl,  // Gunakan spriteUrl dari JSON
+        data.hexRange  // atau data.movementRange, sesuai kebutuhan
       );
     });
     return enemies;

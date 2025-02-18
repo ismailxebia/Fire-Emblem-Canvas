@@ -33,7 +33,7 @@ export default class Game {
         if (this.stageData.heroPositions[index]) {
           hero.col = this.stageData.heroPositions[index].col;
           hero.row = this.stageData.heroPositions[index].row;
-          hero.actionTaken = false; // Flag untuk turn-based
+          hero.actionTaken = false;
         }
       });
     }
@@ -42,6 +42,10 @@ export default class Game {
         if (this.stageData.enemyPositions[index]) {
           enemy.col = this.stageData.enemyPositions[index].col;
           enemy.row = this.stageData.enemyPositions[index].row;
+          enemy.actionTaken = false;
+          // Pastikan enemy menggunakan hexRange dari data JSON
+          enemy.hexRange = this.stageData.enemyPositions[index].hexRange || 1;
+          enemy.movementRange = enemy.hexRange;
         }
       });
     }
@@ -65,14 +69,133 @@ export default class Game {
     this.effectManager = new EffectManager(stageWidth, stageHeight, this.stageData.effects);
 
     // Inisialisasi state turn-based
-    this.turnPhase = 'start'; // 'start', 'hero', 'enemy'
+    this.turnPhase = 'start';
     this.turnNumber = 1;
-    window.gameOverlayActive = true; // Nonaktifkan interaksi game saat overlay aktif
+    window.gameOverlayActive = true;
     showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
     setTimeout(() => {
       this.turnPhase = 'hero';
       window.gameOverlayActive = false;
     }, 3000);
+
+    // Untuk memproses enemy secara berurutan
+    this.enemyTurnProcessing = false;
+    this.currentEnemyIndex = 0;
+  }
+
+  // Fungsi pembantu: Periksa apakah suatu cell sudah ditempati
+  isCellOccupied(col, row) {
+    if (this.grid.obstacles && this.grid.obstacles.some(o => o.col === col && o.row === row)) return true;
+    if (this.battle.heroes.some(hero => hero.col === col && hero.row === row)) return true;
+    if (this.battle.enemies.some(enemy => enemy.col === col && enemy.row === row)) return true;
+    return false;
+  }
+
+  // Fungsi pembantu: Kumpulkan candidate cell dalam jangkauan enemy
+  getCandidateCells(enemy) {
+    const candidates = [];
+    const range = enemy.movementRange;
+    for (let c = enemy.col - range; c <= enemy.col + range; c++) {
+      for (let r = enemy.row - range; r <= enemy.row + range; r++) {
+        if (Math.abs(c - enemy.col) + Math.abs(r - enemy.row) <= range) {
+          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
+          if (!this.isCellOccupied(c, r)) {
+            candidates.push({ col: c, row: r });
+          }
+        }
+      }
+    }
+    return candidates;
+  }
+
+  // Fungsi untuk menggambar hex range overlay untuk enemy
+  drawEnemyHexRange(enemy, ctx) {
+    const hexRange = enemy.hexRange;
+    ctx.save();
+    ctx.fillStyle = "rgba(255,0,0,0.2)";
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 2;
+    for (let c = enemy.col - hexRange; c <= enemy.col + hexRange; c++) {
+      for (let r = enemy.row - hexRange; r <= enemy.row + hexRange; r++) {
+        if (Math.abs(c - enemy.col) + Math.abs(r - enemy.row) <= hexRange) {
+          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
+          const pos = this.grid.getCellPosition(c, r);
+          ctx.fillRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
+          ctx.strokeRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // Fungsi untuk memproses enemy secara berurutan dalam fase enemy turn
+  processNextEnemy() {
+    if (this.currentEnemyIndex >= this.battle.enemies.length) {
+      // Semua enemy telah bertindak, reset turn
+      this.enemyTurnProcessing = false;
+      this.turnPhase = 'start';
+      this.turnNumber++;
+      this.battle.heroes.forEach(hero => hero.actionTaken = false);
+      this.battle.enemies.forEach(enemy => enemy.actionTaken = false);
+      window.gameOverlayActive = true;
+      showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
+      setTimeout(() => {
+        this.turnPhase = 'hero';
+        window.gameOverlayActive = false;
+      }, 3000);
+      return;
+    }
+
+    let enemy = this.battle.enemies[this.currentEnemyIndex];
+    if (enemy.actionTaken) {
+      this.currentEnemyIndex++;
+      this.processNextEnemy();
+      return;
+    }
+    // Tampilkan overlay hex range untuk enemy yang sedang aktif
+    enemy.showHexRange = true;
+
+    // Delay 1 detik sebelum memproses enemy ini (untuk overlay terlihat)
+    setTimeout(() => {
+      // Pilih target hero terdekat (heuristik sederhana)
+      let targetHero = null;
+      let minDist = Infinity;
+      this.battle.heroes.forEach(hero => {
+        const dist = Math.abs(enemy.col - hero.col) + Math.abs(enemy.row - hero.row);
+        if (dist < minDist) {
+          minDist = dist;
+          targetHero = hero;
+        }
+      });
+
+      // Dapatkan candidate cell yang valid dalam jangkauan enemy
+      let candidates = this.getCandidateCells(enemy);
+      let dest = { col: enemy.col, row: enemy.row };
+      if (targetHero && candidates.length > 0) {
+        // Pilih candidate yang meminimalkan jarak ke targetHero
+        let bestCandidate = null;
+        let bestDistance = Infinity;
+        candidates.forEach(cell => {
+          const d = Math.abs(cell.col - targetHero.col) + Math.abs(cell.row - targetHero.row);
+          if (d < bestDistance) {
+            bestDistance = d;
+            bestCandidate = cell;
+          }
+        });
+        if (bestCandidate) dest = bestCandidate;
+      }
+
+      // Delay tambahan 1 detik agar overlay hex range terlihat, lalu enemy bergerak
+      setTimeout(() => {
+        enemy.startMove(this.grid, dest.col, dest.row);
+        enemy.actionTaken = true;
+        enemy.showHexRange = false;
+        setTimeout(() => {
+          this.currentEnemyIndex++;
+          this.processNextEnemy();
+        }, 1000);
+      }, 1000);
+    }, 1000);
   }
 
   update(timestamp) {
@@ -83,24 +206,17 @@ export default class Game {
       this.effectManager.update(deltaTime, this.camera);
     }
 
-    // Logika turn-based sederhana
+    // Logika turn-based untuk giliran hero
     if (this.turnPhase === 'hero') {
       const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken);
       if (allHeroesActed) {
         this.turnPhase = 'enemy';
-        // Enemy turn placeholder (dapat digantikan dengan logika AI lebih kompleks)
-        setTimeout(() => {
-          // Setelah enemy turn, reset turn
-          this.turnPhase = 'start';
-          this.turnNumber++;
-          this.battle.heroes.forEach(hero => hero.actionTaken = false);
-          window.gameOverlayActive = true;
-          showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
-          setTimeout(() => {
-            this.turnPhase = 'hero';
-            window.gameOverlayActive = false;
-          }, 3000);
-        }, 1500);
+      }
+    } else if (this.turnPhase === 'enemy') {
+      if (!this.enemyTurnProcessing) {
+        this.enemyTurnProcessing = true;
+        this.currentEnemyIndex = 0;
+        this.processNextEnemy();
       }
     }
   }
@@ -127,6 +243,14 @@ export default class Game {
       this.effectManager.render(ctx, this.camera);
     }
     this.grid.render(ctx, this.camera);
+
+    // Gambar overlay hex range untuk enemy yang sedang aktif (di bawah unit)
+    if (this.turnPhase === 'enemy' && this.enemyTurnProcessing && this.currentEnemyIndex < this.battle.enemies.length) {
+      let enemy = this.battle.enemies[this.currentEnemyIndex];
+      if (enemy.showHexRange) {
+        this.drawEnemyHexRange(enemy, ctx);
+      }
+    }
     this.battle.render(ctx, this.camera);
   }
 }
