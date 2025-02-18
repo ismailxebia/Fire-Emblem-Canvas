@@ -42,29 +42,23 @@ export default class RainEffect {
         length: 10 + Math.random() * 10,
         // Kecepatan vertikal (jatuh) antara 300-500 piksel per detik
         speedY: 300 + Math.random() * 200,
-        // Kecepatan horizontal (drift) sedikit acak
         speedX: (Math.random() - 0.5) * 20,
-        // Opasitas acak antara 0.3-0.6
         opacity: 0.3 + Math.random() * 0.3,
-        // Tetapkan sudut secara tetap, tanpa variasi random
         angle: this.wind
       };
     }
   
     update(deltaTime, camera) {
-      // deltaTime dalam ms; konversi ke detik
       const dt = deltaTime * 0.001;
       for (let i = 0; i < this.count; i++) {
         let p = this.particles[i];
         p.x += p.speedX * dt;
         p.y += p.speedY * dt;
         
-        // Jika raindrop sudah jatuh di bawah area, reset ke atas secara acak
         if (p.y > this.height) {
           p.y = -p.length;
           p.x = Math.random() * this.width;
         }
-        // Wrap horizontal: jika keluar di kanan/kiri, balikan
         if (p.x > this.width) p.x -= this.width;
         else if (p.x < 0) p.x += this.width;
       }

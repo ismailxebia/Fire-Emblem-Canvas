@@ -43,15 +43,11 @@ export default class CloudEffect {
             ctx.fill();
         };
 
-        // Gambar lingkaran di posisi asli
         draw(x, y);
-        // Jika mendekati batas kanan atau kiri, gambar duplikat
         if (x + radius > this.width) draw(x - this.width, y);
         if (x - radius < 0) draw(x + this.width, y);
-        // Jika mendekati batas bawah atau atas, gambar duplikat
         if (y + radius > this.height) draw(x, y - this.height);
         if (y - radius < 0) draw(x, y + this.height);
-        // Jika mendekati sudut, gambar duplikat di keempat sudut
         if (x + radius > this.width && y + radius > this.height) draw(x - this.width, y - this.height);
         if (x - radius < 0 && y + radius > this.height) draw(x + this.width, y - this.height);
         if (x + radius > this.width && y - radius < 0) draw(x - this.width, y + this.height);
@@ -59,7 +55,6 @@ export default class CloudEffect {
     }
 
     update(deltaTime) {
-        // Geser pola awan secara perlahan ke kanan (kecepatan 0.02 pixel per ms)
         this.offsetX += deltaTime * 0.02;
         if (this.offsetX > this.width) {
             this.offsetX -= this.width;

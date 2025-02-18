@@ -36,16 +36,34 @@ export class Enemy extends Unit {
     this.currentAction = 'idle'; // Default enemy selalu idle
     this.frameIndex = 0;
     this.frameTimer = 0;
-    this.frameInterval = 200; // Interval per frame dalam milidetik
+    this.frameInterval = 200; // Interval per frame (ms)
 
-    // Properti posisi untuk render; enemy langsung menyinkronkan posisi dengan grid
+    // Properti untuk animasi pergerakan (mirip dengan hero)
+    // Posisi untuk render di canvas akan diperbarui melalui animasi pergerakan
     this.pixelX = 0;
     this.pixelY = 0;
+    this.isMoving = false;
+    this.moveProgress = 0;
+    this.moveDuration = 0;
+    this.targetCol = col;
+    this.targetRow = row;
+    this.startPixelX = 0;
+    this.startPixelY = 0;
+
+    // Flag untuk menandai bahwa enemy sudah bertindak pada turn ini.
+    this.actionTaken = false;
+    
+    // Misalnya, tetapkan movementRange default untuk enemy (bisa diatur dari data)
+    this.movementRange = 2; 
+  }
+
+  // Fungsi easing sederhana untuk interpolasi (easeInOutQuad)
+  easeInOutQuad(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
   }
 
   // Update frame animasi berdasarkan deltaTime
   updateAnimation(deltaTime) {
-    // Dapatkan konfigurasi untuk aksi saat ini; fallback ke idle jika tidak tersedia.
     const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
     this.frameTimer += deltaTime;
     if (this.frameTimer >= this.frameInterval) {
@@ -54,45 +72,75 @@ export class Enemy extends Unit {
     }
   }
 
+  // Mulai animasi pergerakan enemy ke grid cell baru
+  startMove(grid, newCol, newRow) {
+    this.targetCol = newCol;
+    this.targetRow = newRow;
+    this.startPixelX = this.pixelX;
+    this.startPixelY = this.pixelY;
+    const targetPos = grid.getCellPosition(newCol, newRow);
+    this.targetPixelX = targetPos.x;
+    this.targetPixelY = targetPos.y;
+    const dx = this.targetPixelX - this.startPixelX;
+    const dy = this.targetPixelY - this.startPixelY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    // Gunakan kecepatan yang sama seperti hero (DEFAULT_MOVE_SPEED) untuk pergerakan
+    this.moveDuration = Math.max((distance / 850) * 1000, 150);
+    this.moveProgress = 0;
+    this.isMoving = true;
+  }
+
   update(deltaTime, grid) {
-    // Sinkronkan posisi enemy dengan cell grid
-    const pos = grid.getCellPosition(this.col, this.row);
-    this.pixelX = pos.x;
-    this.pixelY = pos.y;
-    // Perbarui animasi spritesheet
+    // Jika enemy sedang bergerak, update posisi dengan interpolasi
+    if (this.isMoving) {
+      this.moveProgress += deltaTime / this.moveDuration;
+      let t = Math.min(this.moveProgress, 1);
+      let easedT = this.easeInOutQuad(t);
+      this.pixelX = this.startPixelX + (this.targetPixelX - this.startPixelX) * easedT;
+      this.pixelY = this.startPixelY + (this.targetPixelY - this.startPixelY) * easedT;
+      if (t >= 1) {
+        this.isMoving = false;
+        this.col = this.targetCol;
+        this.row = this.targetRow;
+      }
+    } else {
+      // Jika tidak bergerak, sinkronkan posisi dengan cell grid
+      const pos = grid.getCellPosition(this.col, this.row);
+      this.pixelX = pos.x;
+      this.pixelY = pos.y;
+    }
+    // Update animasi spritesheet
     this.updateAnimation(deltaTime);
   }
 
   render(ctx, grid, camera) {
-    // Dapatkan posisi cell dari grid
-    const pos = grid.getCellPosition(this.col, this.row);
-    // Hitung center horizontal dan bottom agar sprite di-align dengan benar
+    const pos = { x: this.pixelX, y: this.pixelY };
     const cellCenterX = pos.x + grid.tileSize / 2 - camera.x;
     const cellBottomY = pos.y + grid.tileSize - camera.y;
 
     if (this.image.complete && this.image.naturalWidth > 0) {
       const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
       const rowIndex = config.row;
-      
       // Desired tinggi adalah 115% dari grid.tileSize
       const desiredHeight = grid.tileSize * 1.2;
       const scale = desiredHeight / FRAME_HEIGHT;
       const imgHeight = FRAME_HEIGHT * scale;
       const imgWidth = FRAME_WIDTH * scale;
-      
-      // Hitung offset source pada spritesheet berdasarkan frameIndex dan rowIndex
       const sourceX = this.frameIndex * FRAME_WIDTH;
       const sourceY = rowIndex * FRAME_HEIGHT;
-      
-      // Hitung posisi render agar sprite di-align horizontal center dan bottom
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
-      
+      // Terapkan efek grayscale jika enemy sudah bertindak
+      let prevFilter = ctx.filter;
+      if (this.actionTaken) {
+        ctx.filter = "grayscale(100%)";
+      }
       ctx.drawImage(
         this.image,
         sourceX, sourceY, FRAME_WIDTH, FRAME_HEIGHT,
         drawX, drawY, imgWidth, imgHeight
       );
+      ctx.filter = prevFilter;
     } else {
       ctx.fillStyle = 'red';
       ctx.fillRect(pos.x - camera.x, pos.y - camera.y, grid.tileSize, grid.tileSize);

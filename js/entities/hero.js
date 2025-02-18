@@ -88,6 +88,9 @@ export class Hero {
     this.frameIndex = 0;
     this.frameTimer = 0;
     this.frameInterval = 200; // Interval per frame (ms)
+
+    // Flag untuk menandai apakah hero sudah bertindak pada turn ini.
+    this.actionTaken = false;
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)
@@ -160,11 +163,18 @@ export class Hero {
       const sourceY = rowIndex * FRAME_HEIGHT;
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
+
+      // Jika hero sudah bertindak, terapkan efek grayscale
+      let prevFilter = ctx.filter;
+      if (this.actionTaken) {
+        ctx.filter = "grayscale(100%)";
+      }
       ctx.drawImage(
         this.image,
         sourceX, sourceY, FRAME_WIDTH, FRAME_HEIGHT,
         drawX, drawY, imgWidth, imgHeight
       );
+      ctx.filter = prevFilter;
     } else {
       ctx.fillStyle = 'blue';
       ctx.fillRect(pos.x - camera.x, pos.y - camera.y, grid.tileSize, grid.tileSize);

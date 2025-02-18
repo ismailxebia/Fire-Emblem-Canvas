@@ -211,3 +211,29 @@ body {
     color: #5A5851;
     border-radius: 8px;
 }
+
+/* Turn Overlay Styles */
+#turnOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: none; /* disembunyikan secara default */
+    z-index: 2000; /* pastikan di atas segala sesuatu */
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #turnOverlay .overlayContent {
+    color: white;
+    text-align: center;
+    line-height: 2em;
+    white-space: pre-wrap;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  
