@@ -16,8 +16,14 @@ export async function loadEnemyData() {
         data.row,
         data.hp,
         data.atk,
-        data.spriteUrl,  // Gunakan spriteUrl dari JSON
-        data.hexRange  // atau data.movementRange, sesuai kebutuhan
+        data.spriteUrl,    // spriteUrl dari JSON
+        data.hexRange,     // hexRange dari JSON
+        data.portraitUrl,  // portraitUrl untuk profile status
+        data.level,        // level
+        data.star,         // star
+        data.spd,          // spd
+        data.def,          // def
+        data.res           // res
       );
     });
     return enemies;

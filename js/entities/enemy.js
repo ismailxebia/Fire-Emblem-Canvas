@@ -19,11 +19,38 @@ export class Enemy extends Unit {
    * @param {number} health - Nilai kesehatan.
    * @param {number} attack - Nilai serangan.
    * @param {string} spriteUrl - URL spritesheet terpadu enemy.
-   * @param {number} hexRange - Jangkauan hex untuk enemy (diambil dari JSON).
+   * @param {number} hexRange - Jangkauan hex untuk enemy.
+   * @param {string} portraitUrl - URL portrait enemy untuk profile.
+   * @param {number} level - Level enemy.
+   * @param {number} star - Jumlah bintang/evolusi enemy.
+   * @param {number} spd - Kecepatan enemy.
+   * @param {number} def - Pertahanan enemy.
+   * @param {number} res - Resistensi enemy.
    */
-  constructor(name, col, row, health = 100, attack = 20, spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png", hexRange = 3) {
+  constructor(
+    name,
+    col,
+    row,
+    health,
+    attack,
+    spriteUrl = "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
+    hexRange = 3,
+    portraitUrl = "https://via.placeholder.com/80",
+    level = 1,
+    star = 1,
+    spd = 0,
+    def = 0,
+    res = 0
+  ) {
     super(name, col, row, health, attack);
     this.spriteUrl = spriteUrl;
+    this.portraitUrl = portraitUrl;
+    this.level = level;
+    this.star = star;
+    this.spd = spd;
+    this.def = def;
+    this.res = res;
+
     this.image = new Image();
     this.image.src = spriteUrl;
     this.image.onload = () => {
@@ -34,13 +61,12 @@ export class Enemy extends Unit {
     };
 
     // Properti animasi spritesheet
-    this.currentAction = 'idle'; // Default enemy selalu idle
+    this.currentAction = 'idle';
     this.frameIndex = 0;
     this.frameTimer = 0;
-    this.frameInterval = 200; // Interval per frame dalam milidetik
+    this.frameInterval = 200;
 
     // Properti untuk animasi pergerakan (mirip dengan hero)
-    // Enemy akan bergerak dengan animasi, menggunakan startMove()
     this.pixelX = 0;
     this.pixelY = 0;
     this.isMoving = false;
@@ -87,7 +113,6 @@ export class Enemy extends Unit {
     const dx = this.targetPixelX - this.startPixelX;
     const dy = this.targetPixelY - this.startPixelY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    // Gunakan kecepatan yang sama (misal, 850 pixel per detik) untuk enemy
     this.moveDuration = Math.max((distance / 850) * 1000, 150);
     this.moveProgress = 0;
     this.isMoving = true;
@@ -117,7 +142,6 @@ export class Enemy extends Unit {
     const pos = { x: this.pixelX, y: this.pixelY };
     const cellCenterX = pos.x + grid.tileSize / 2 - camera.x;
     const cellBottomY = pos.y + grid.tileSize - camera.y;
-
     if (this.image.complete && this.image.naturalWidth > 0) {
       const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
       const rowIndex = config.row;

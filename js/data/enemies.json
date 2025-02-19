@@ -3,7 +3,7 @@
       "id": "enemy1",
       "name": "Enemy1",
       "level": 1,
-      "star": 1,
+      "star": 3,
       "hp": 50,
       "atk": 15,
       "spd": 8,
@@ -13,7 +13,7 @@
       "attackRange": 1,
       "hexRange": 3,
       "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Enemy%20(1).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Enemy/Enemy1_portrait.png",
+      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/pot-enemy.png",
       "col": 0,
       "row": 8
     },
@@ -31,7 +31,7 @@
       "attackRange": 1,
       "hexRange": 3,
       "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Enemy%20(1).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Enemy/Enemy2_portrait.png",
+      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/pot-enemy.png",
       "col": 1,
       "row": 8
     },
@@ -49,7 +49,7 @@
       "attackRange": 1,
       "hexRange": 2,
       "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Enemy%20(1).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Enemy/Enemy3_portrait.png",
+      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/pot-enemy.png",
       "col": 2,
       "row": 9
     },
@@ -57,7 +57,7 @@
       "id": "enemy4",
       "name": "Enemy4",
       "level": 1,
-      "star": 1,
+      "star": 2,
       "hp": 80,
       "atk": 20,
       "spd": 7,
@@ -67,7 +67,7 @@
       "attackRange": 1,
       "hexRange": 3,
       "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Enemy%20(1).png",
-      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Enemy/Enemy4_portrait.png",
+      "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/pot-enemy.png",
       "col": 3,
       "row": 8
     }

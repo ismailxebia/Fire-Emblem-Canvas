@@ -6,6 +6,7 @@ export function handleInput(game) {
     return Math.max(min, Math.min(max, val));
   }
 
+  // Helper: cari hero di suatu cell
   function getHeroAtCell(col, row) {
     for (const hero of game.battle.heroes) {
       if (hero.col === col && hero.row === row) return hero;
@@ -13,12 +14,20 @@ export function handleInput(game) {
     return null;
   }
 
-  function getUnitAtCell(col, row) {
-    const hero = getHeroAtCell(col, row);
-    if (hero) return hero;
+  // Helper: cari enemy di suatu cell
+  function getEnemyAtCell(col, row) {
     for (const enemy of game.battle.enemies) {
       if (enemy.col === col && enemy.row === row) return enemy;
     }
+    return null;
+  }
+
+  // Helper: cari unit (hero atau enemy) di suatu cell
+  function getUnitAtCell(col, row) {
+    const hero = getHeroAtCell(col, row);
+    if (hero) return hero;
+    const enemy = getEnemyAtCell(col, row);
+    if (enemy) return enemy;
     return null;
   }
 
@@ -28,6 +37,7 @@ export function handleInput(game) {
   let hasMoved = false;
   const dragThreshold = 15;
 
+  // Pointer down
   game.canvas.addEventListener('pointerdown', (e) => {
     if (window.gameOverlayActive) return;
     isDragging = true;
@@ -37,6 +47,7 @@ export function handleInput(game) {
     game.canvas.setPointerCapture(e.pointerId);
   });
 
+  // Pointer move
   game.canvas.addEventListener('pointermove', (e) => {
     if (window.gameOverlayActive) return;
     if (!isDragging) return;
@@ -56,6 +67,7 @@ export function handleInput(game) {
     }
   });
 
+  // Pointer up
   game.canvas.addEventListener('pointerup', (e) => {
     if (window.gameOverlayActive) return;
     if (!hasMoved) {
@@ -65,8 +77,8 @@ export function handleInput(game) {
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
 
+      // MODE MOVE: Jika hero sedang dalam mode move
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
-        // Tentukan titik asal (origin) berdasarkan pendingMove jika ada, atau posisi hero saat ini
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
           : { col: game.battle.selectedHero.col, row: game.battle.selectedHero.row };
@@ -101,7 +113,7 @@ export function handleInput(game) {
           return;
         }
 
-        // Pertama: cek apakah sudah ada pendingMove dan klik pada cell yang sama dengan pendingMove.newPosition
+        // Jika klik pada cell yang sama dengan pendingMove.newPosition, konfirmasi move
         if (game.battle.pendingMove && game.battle.pendingMove.newPosition &&
             game.battle.pendingMove.newPosition.col === col &&
             game.battle.pendingMove.newPosition.row === row) {
@@ -111,14 +123,14 @@ export function handleInput(game) {
           game.battle.actionMode = 'selected';
           updateProfileStatus(null);
         }
-        // Jika klik pada cell yang sama dengan posisi hero (cancel move)
+        // Jika klik pada cell yang sama dengan posisi hero, cancel move
         else if (game.battle.selectedHero.col === col && game.battle.selectedHero.row === row) {
           game.battle.actionMode = 'selected';
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
           updateProfileStatus(null);
         }
-        // Jika klik pada cell baru: update pendingMove
+        // Else, update atau buat pendingMove baru
         else {
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
@@ -136,11 +148,13 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'block';
           updateProfileStatus(game.battle.selectedHero);
         }
-      } else {
-        // MODE NORMAL: Seleksi/deseleksi hero
+      }
+      // MODE NORMAL: Seleksi/deseleksi unit (hero atau enemy)
+      else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          // Jika hero sudah bertindak, tetap set sebagai selected (agar indicator muncul) tetapi tidak munculkan action menu
+          // Saat memilih hero, clear semua selected enemy
+          game.battle.enemies.forEach(enemy => enemy.selected = false);
           if (clickedHero.actionTaken) {
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
@@ -160,11 +174,23 @@ export function handleInput(game) {
             updateProfileStatus(clickedHero);
           }
         } else {
-          if (game.battle.actionMode === 'selected') {
+          const clickedEnemy = getEnemyAtCell(col, row);
+          if (clickedEnemy) {
+            // Saat memilih enemy, clear selected hero dan enemy lain
             game.battle.selectedHero = null;
-            game.battle.actionMode = 'normal';
+            game.battle.enemies.forEach(enemy => enemy.selected = false);
+            clickedEnemy.selected = true;
+            game.battle.actionMode = 'enemySelected';
             document.getElementById('actionMenu').style.display = 'none';
-            updateProfileStatus(null);
+            updateProfileStatus(clickedEnemy);
+            return;
+          } else {
+            if (game.battle.actionMode === 'selected' || game.battle.actionMode === 'enemySelected') {
+              game.battle.selectedHero = null;
+              game.battle.actionMode = 'normal';
+              document.getElementById('actionMenu').style.display = 'none';
+              updateProfileStatus(null);
+            }
           }
         }
       }
