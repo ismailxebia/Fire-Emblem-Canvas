@@ -70,8 +70,7 @@ export default class Game {
 
     // Load selected indicator image untuk enemy
     this.selectedIndicator = new Image();
-    this.selectedIndicator.src = "assets/selected.png";
-    // Pastikan jika terjadi error pada selectedIndicator, gunakan fallback (opsional)
+    this.selectedIndicator.src = "assets/Selected.png";
     this.selectedIndicator.onerror = () => {
       console.error("Selected indicator gagal dimuat.");
     };
@@ -123,7 +122,7 @@ export default class Game {
   drawEnemyHexRange(enemy, ctx) {
     const hexRange = enemy.hexRange;
     ctx.save();
-    ctx.fillStyle = "rgba(255,0,0,0.15)";
+    ctx.fillStyle = "rgba(255,0,0,0.2)";
     ctx.strokeStyle = "rgba(255,255,255,0.1)";
     ctx.lineWidth = 2;
     for (let c = enemy.col - hexRange; c <= enemy.col + hexRange; c++) {
