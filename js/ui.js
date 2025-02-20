@@ -1,5 +1,14 @@
 // js/ui.js
 
+// Fungsi debounce untuk membatasi seberapa sering fungsi dijalankan
+function debounce(func, delay) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
 export function setupActionMenu(game) {
   const actionMenu = document.getElementById('actionMenu');
   const confirmMenu = document.getElementById('confirmMenu');
@@ -23,7 +32,7 @@ export function setupActionMenu(game) {
     actionMenu.style.display = 'none';
   });
 
-  // Tombol Wait: Menandai bahwa hero telah bertindak (actionTaken true) dan tidak melakukan perpindahan
+  // Tombol Wait: Tandai hero telah bertindak tanpa melakukan perpindahan
   document.getElementById('btnWait').addEventListener('click', () => {
     if (game.battle.selectedHero) {
       game.battle.selectedHero.actionTaken = true;
@@ -47,7 +56,6 @@ export function setupActionMenu(game) {
   // Tombol Confirm: Finalisasi perpindahan, tandai bahwa hero telah bertindak
   document.getElementById('btnConfirm').addEventListener('click', () => {
     if (game.battle.pendingMove) {
-      // Tandai hero telah bertindak setelah move dikonfirmasi
       game.battle.pendingMove.hero.actionTaken = true;
       game.battle.pendingMove = null;
       confirmMenu.style.display = 'none';
@@ -71,7 +79,8 @@ export function setupActionMenu(game) {
   });
 }
 
-export function updateProfileStatus(unit) {
+// Fungsi internal untuk update profile status
+function _updateProfileStatus(unit) {
   const portraitImg = document.getElementById('heroPortrait');
   const levelTagElem = document.querySelector('.portrait .levelTag');
   const heroNameElem = document.querySelector('.heroName');
@@ -82,11 +91,11 @@ export function updateProfileStatus(unit) {
 
   if (!unit) return;
 
-  // Update gambar hero; gunakan portraitUrl jika ada, atau spriteUrl sebagai fallback
+  // Update gambar: gunakan portraitUrl jika tersedia, fallback ke spriteUrl
   portraitImg.src = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
   // Update level tag
   levelTagElem.textContent = `LV ${unit.level || 1}`;
-  // Update nama hero
+  // Update nama
   heroNameElem.textContent = unit.name || 'Unknown';
 
   // Update bintang: asumsikan maksimal 3 bintang
@@ -118,7 +127,10 @@ export function updateProfileStatus(unit) {
   `;
 }
 
-// Fungsi untuk menampilkan overlay turn sebagai elemen DOM
+// Ekspor updateProfileStatus dengan debounce (delay 300ms)
+export const updateProfileStatus = debounce(_updateProfileStatus, 300);
+
+// Fungsi untuk menampilkan overlay turn
 export function showTurnOverlay(text) {
   const overlay = document.getElementById('turnOverlay');
   if (!overlay) {
@@ -131,20 +143,15 @@ export function showTurnOverlay(text) {
     return;
   }
   
-  // Ganti newline dengan <br> untuk menampilkan baris baru
+  // Ganti newline dengan <br> untuk tampilkan baris baru
   content.innerHTML = text.replace(/\n/g, '<br>');
   
-  // Reset state animasi
+  // Reset animasi
   content.style.opacity = '0';
   content.style.transform = 'translateY(-20px)';
-  
-  // Tampilkan overlay
   overlay.style.display = 'flex';
-  
-  // Trigger reflow agar transition berjalan
   void content.offsetWidth;
   
-  // Animasi fade in dan slide down
   content.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
   content.style.opacity = '1';
   content.style.transform = 'translateY(0)';
@@ -152,7 +159,7 @@ export function showTurnOverlay(text) {
   // Disable interaksi game sementara overlay aktif
   window.gameOverlayActive = true;
   
-  // Setelah 3 detik, animasikan keluar dan sembunyikan overlay
+  // Setelah 3 detik, animasi keluar dan sembunyikan overlay
   setTimeout(() => {
     content.style.opacity = '0';
     content.style.transform = 'translateY(-20px)';
