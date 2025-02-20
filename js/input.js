@@ -36,6 +36,7 @@ export function handleInput(game) {
   let startY = 0;
   let hasMoved = false;
   const dragThreshold = 15;
+  let lastSelectedEnemy = null; // Guard untuk mencegah update berulang enemy
 
   // Pointer down
   game.canvas.addEventListener('pointerdown', (e) => {
@@ -77,7 +78,7 @@ export function handleInput(game) {
       const col = Math.floor((x + game.camera.x) / game.grid.tileSize);
       const row = Math.floor((y + game.camera.y) / game.grid.tileSize);
 
-      // MODE MOVE: Jika hero sedang dalam mode move
+      // MODE MOVE: jika hero sedang dalam mode move
       if (game.battle.actionMode === 'move' && game.battle.selectedHero) {
         const origin = game.battle.pendingMove
           ? game.battle.pendingMove.originalPosition
@@ -129,9 +130,7 @@ export function handleInput(game) {
           document.getElementById('confirmMenu').style.display = 'none';
           game.battle.pendingMove = null;
           updateProfileStatus(null);
-        }
-        // Else, update atau buat pendingMove baru
-        else {
+        } else {
           if (!game.battle.pendingMove) {
             game.battle.pendingMove = {
               hero: game.battle.selectedHero,
@@ -149,12 +148,13 @@ export function handleInput(game) {
           updateProfileStatus(game.battle.selectedHero);
         }
       }
-      // MODE NORMAL: Seleksi/deseleksi unit (hero atau enemy)
+      // MODE NORMAL: proses seleksi/deseleksi unit (hero atau enemy)
       else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          // Saat memilih hero, clear semua selected enemy
+          // Saat memilih hero, clear semua selected enemy dan reset lastSelectedEnemy
           game.battle.enemies.forEach(enemy => enemy.selected = false);
+          lastSelectedEnemy = null;
           if (clickedHero.actionTaken) {
             game.battle.selectedHero = clickedHero;
             game.battle.actionMode = 'selected';
@@ -176,10 +176,16 @@ export function handleInput(game) {
         } else {
           const clickedEnemy = getEnemyAtCell(col, row);
           if (clickedEnemy) {
-            // Saat memilih enemy, clear selected hero dan enemy lain
+            // Saat memilih enemy, clear selected hero
             game.battle.selectedHero = null;
-            game.battle.enemies.forEach(enemy => enemy.selected = false);
-            clickedEnemy.selected = true;
+            // Jika enemy yang sama sudah dipilih sebelumnya, jangan panggil update lagi
+            if (lastSelectedEnemy === clickedEnemy) {
+              // Tidak memanggil updateProfileStatus lagi
+            } else {
+              game.battle.enemies.forEach(enemy => enemy.selected = false);
+              clickedEnemy.selected = true;
+              lastSelectedEnemy = clickedEnemy;
+            }
             game.battle.actionMode = 'enemySelected';
             document.getElementById('actionMenu').style.display = 'none';
             updateProfileStatus(clickedEnemy);

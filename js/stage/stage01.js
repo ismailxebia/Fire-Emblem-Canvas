@@ -40,7 +40,7 @@ export function loadStageData() {
     // Konfigurasi efek opsional
     effects: {
       clouds: true,
-      rain: true,
+      rain: false,
     }
   };
 }
