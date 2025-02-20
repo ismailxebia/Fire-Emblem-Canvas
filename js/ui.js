@@ -9,6 +9,11 @@ function debounce(func, delay) {
   };
 }
 
+// Fungsi untuk mendeteksi perangkat mobile (opsional)
+function isMobileDevice() {
+  return /Android|iPhone|iPad/i.test(navigator.userAgent);
+}
+
 export function setupActionMenu(game) {
   const actionMenu = document.getElementById('actionMenu');
   const confirmMenu = document.getElementById('confirmMenu');
@@ -32,7 +37,7 @@ export function setupActionMenu(game) {
     actionMenu.style.display = 'none';
   });
 
-  // Tombol Wait: Tandai hero telah bertindak tanpa melakukan perpindahan
+  // Tombol Wait: Tandai bahwa hero telah bertindak dan tidak melakukan perpindahan
   document.getElementById('btnWait').addEventListener('click', () => {
     if (game.battle.selectedHero) {
       game.battle.selectedHero.actionTaken = true;
@@ -91,14 +96,18 @@ function _updateProfileStatus(unit) {
 
   if (!unit) return;
 
-  // Update gambar: gunakan portraitUrl jika tersedia, fallback ke spriteUrl
-  portraitImg.src = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
+  // Update gambar: gunakan portraitUrl jika ada, fallback ke spriteUrl
+  const newSrc = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
+  if (portraitImg.src !== newSrc) {
+    portraitImg.src = newSrc;
+  }
+
   // Update level tag
   levelTagElem.textContent = `LV ${unit.level || 1}`;
   // Update nama
   heroNameElem.textContent = unit.name || 'Unknown';
 
-  // Update bintang: asumsikan maksimal 3 bintang
+  // Update stars: asumsikan maksimal 3 bintang
   let starHTML = '';
   const maxStars = 3;
   const activeStars = unit.star || 1;
@@ -127,8 +136,18 @@ function _updateProfileStatus(unit) {
   `;
 }
 
-// Ekspor updateProfileStatus dengan debounce (delay 300ms)
-export const updateProfileStatus = debounce(_updateProfileStatus, 300);
+// Bungkus _updateProfileStatus dengan debounce untuk hero (300ms)
+const debouncedUpdateProfileStatus = debounce(_updateProfileStatus, 300);
+
+// Fungsi updateProfileStatus yang menyesuaikan berdasarkan tipe unit
+export function updateProfileStatus(unit) {
+  // Jika unit adalah enemy (memiliki properti hexRange), panggil update langsung
+  if (unit && unit.hexRange !== undefined) {
+    _updateProfileStatus(unit);
+  } else {
+    debouncedUpdateProfileStatus(unit);
+  }
+}
 
 // Fungsi untuk menampilkan overlay turn
 export function showTurnOverlay(text) {
@@ -143,7 +162,7 @@ export function showTurnOverlay(text) {
     return;
   }
   
-  // Ganti newline dengan <br> untuk tampilkan baris baru
+  // Ganti newline dengan <br> untuk menampilkan baris baru
   content.innerHTML = text.replace(/\n/g, '<br>');
   
   // Reset animasi
@@ -156,10 +175,8 @@ export function showTurnOverlay(text) {
   content.style.opacity = '1';
   content.style.transform = 'translateY(0)';
   
-  // Disable interaksi game sementara overlay aktif
   window.gameOverlayActive = true;
   
-  // Setelah 3 detik, animasi keluar dan sembunyikan overlay
   setTimeout(() => {
     content.style.opacity = '0';
     content.style.transform = 'translateY(-20px)';
