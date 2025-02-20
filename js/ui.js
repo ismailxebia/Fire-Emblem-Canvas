@@ -1,6 +1,6 @@
 // js/ui.js
 
-// Fungsi debounce untuk membatasi seberapa sering fungsi dijalankan
+// Fungsi debounce untuk hero (delay 300ms)
 function debounce(func, delay) {
   let timeout;
   return function (...args) {
@@ -9,79 +9,16 @@ function debounce(func, delay) {
   };
 }
 
-// Fungsi untuk mendeteksi perangkat mobile (opsional)
-function isMobileDevice() {
-  return /Android|iPhone|iPad/i.test(navigator.userAgent);
-}
-
-export function setupActionMenu(game) {
-  const actionMenu = document.getElementById('actionMenu');
-  const confirmMenu = document.getElementById('confirmMenu');
-
-  // Tombol Move: Masuk ke mode move dan siapkan pendingMove
-  document.getElementById('btnMove').addEventListener('click', () => {
-    if (game.battle.selectedHero) {
-      game.battle.actionMode = 'move';
-      if (!game.battle.pendingMove) {
-        game.battle.pendingMove = {
-          hero: game.battle.selectedHero,
-          originalPosition: {
-            col: game.battle.selectedHero.col,
-            row: game.battle.selectedHero.row
-          },
-          newPosition: null
-        };
-      }
-      updateProfileStatus(game.battle.selectedHero);
+// Fungsi throttle untuk enemy (delay 100ms)
+function throttle(func, delay) {
+  let lastTime = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastTime >= delay) {
+      lastTime = now;
+      func.apply(this, args);
     }
-    actionMenu.style.display = 'none';
-  });
-
-  // Tombol Wait: Tandai bahwa hero telah bertindak dan tidak melakukan perpindahan
-  document.getElementById('btnWait').addEventListener('click', () => {
-    if (game.battle.selectedHero) {
-      game.battle.selectedHero.actionTaken = true;
-    }
-    actionMenu.style.display = 'none';
-    game.battle.selectedHero = null;
-    game.battle.actionMode = 'normal';
-    updateProfileStatus(null);
-  });
-
-  // Tombol Attack (placeholder)
-  document.getElementById('btnAttack').addEventListener('click', () => {
-    alert('Attack action placeholder');
-  });
-
-  // Tombol Magic (placeholder)
-  document.getElementById('btnMagic').addEventListener('click', () => {
-    alert('Magic action placeholder');
-  });
-
-  // Tombol Confirm: Finalisasi perpindahan, tandai bahwa hero telah bertindak
-  document.getElementById('btnConfirm').addEventListener('click', () => {
-    if (game.battle.pendingMove) {
-      game.battle.pendingMove.hero.actionTaken = true;
-      game.battle.pendingMove = null;
-      confirmMenu.style.display = 'none';
-      game.battle.actionMode = 'normal';
-      game.battle.selectedHero = null;
-      updateProfileStatus(null);
-    }
-  });
-
-  // Tombol Cancel: Batalkan perpindahan dan kembalikan posisi hero
-  document.getElementById('btnCancel').addEventListener('click', () => {
-    if (game.battle.pendingMove) {
-      const hero = game.battle.pendingMove.hero;
-      hero.col = game.battle.pendingMove.originalPosition.col;
-      hero.row = game.battle.pendingMove.originalPosition.row;
-      game.battle.pendingMove = null;
-      confirmMenu.style.display = 'none';
-      game.battle.actionMode = 'selected';
-      updateProfileStatus(hero);
-    }
-  });
+  };
 }
 
 // Fungsi internal untuk update profile status
@@ -102,12 +39,11 @@ function _updateProfileStatus(unit) {
     portraitImg.src = newSrc;
   }
 
-  // Update level tag
+  // Update level tag dan nama
   levelTagElem.textContent = `LV ${unit.level || 1}`;
-  // Update nama
   heroNameElem.textContent = unit.name || 'Unknown';
 
-  // Update stars: asumsikan maksimal 3 bintang
+  // Update stars (maksimal 3 bintang)
   let starHTML = '';
   const maxStars = 3;
   const activeStars = unit.star || 1;
@@ -120,7 +56,7 @@ function _updateProfileStatus(unit) {
   }
   starsContainer.innerHTML = starHTML;
 
-  // Update HP bar
+  // Update HP bar dan nilai HP
   const currentHP = unit.health;
   const maxHP = unit.maxHealth || unit.health;
   const hpPercent = (currentHP / maxHP) * 100;
@@ -136,20 +72,90 @@ function _updateProfileStatus(unit) {
   `;
 }
 
-// Bungkus _updateProfileStatus dengan debounce untuk hero (300ms)
-const debouncedUpdateProfileStatus = debounce(_updateProfileStatus, 300);
+// Buat versi debounce untuk hero dan throttle untuk enemy
+const debouncedUpdateProfileStatus = debounce(_updateProfileStatus, 200);
+const throttledUpdateProfileStatus = throttle(_updateProfileStatus, 100);
 
-// Fungsi updateProfileStatus yang menyesuaikan berdasarkan tipe unit
+// Fungsi updateProfileStatus yang memilih metode sesuai tipe unit
 export function updateProfileStatus(unit) {
-  // Jika unit adalah enemy (memiliki properti hexRange), panggil update langsung
+  // Asumsikan enemy memiliki properti hexRange (dan hero tidak)
   if (unit && unit.hexRange !== undefined) {
-    _updateProfileStatus(unit);
+    throttledUpdateProfileStatus(unit);
   } else {
     debouncedUpdateProfileStatus(unit);
   }
 }
 
-// Fungsi untuk menampilkan overlay turn
+export function setupActionMenu(game) {
+  const actionMenu = document.getElementById('actionMenu');
+  const confirmMenu = document.getElementById('confirmMenu');
+
+  // Tombol Move
+  document.getElementById('btnMove').addEventListener('click', () => {
+    if (game.battle.selectedHero) {
+      game.battle.actionMode = 'move';
+      if (!game.battle.pendingMove) {
+        game.battle.pendingMove = {
+          hero: game.battle.selectedHero,
+          originalPosition: {
+            col: game.battle.selectedHero.col,
+            row: game.battle.selectedHero.row
+          },
+          newPosition: null
+        };
+      }
+      updateProfileStatus(game.battle.selectedHero);
+    }
+    actionMenu.style.display = 'none';
+  });
+
+  // Tombol Wait
+  document.getElementById('btnWait').addEventListener('click', () => {
+    if (game.battle.selectedHero) {
+      game.battle.selectedHero.actionTaken = true;
+    }
+    actionMenu.style.display = 'none';
+    game.battle.selectedHero = null;
+    game.battle.actionMode = 'normal';
+    updateProfileStatus(null);
+  });
+
+  // Tombol Attack (placeholder)
+  document.getElementById('btnAttack').addEventListener('click', () => {
+    alert('Attack action placeholder');
+  });
+
+  // Tombol Magic (placeholder)
+  document.getElementById('btnMagic').addEventListener('click', () => {
+    alert('Magic action placeholder');
+  });
+
+  // Tombol Confirm
+  document.getElementById('btnConfirm').addEventListener('click', () => {
+    if (game.battle.pendingMove) {
+      game.battle.pendingMove.hero.actionTaken = true;
+      game.battle.pendingMove = null;
+      confirmMenu.style.display = 'none';
+      game.battle.actionMode = 'normal';
+      game.battle.selectedHero = null;
+      updateProfileStatus(null);
+    }
+  });
+
+  // Tombol Cancel
+  document.getElementById('btnCancel').addEventListener('click', () => {
+    if (game.battle.pendingMove) {
+      const hero = game.battle.pendingMove.hero;
+      hero.col = game.battle.pendingMove.originalPosition.col;
+      hero.row = game.battle.pendingMove.originalPosition.row;
+      game.battle.pendingMove = null;
+      confirmMenu.style.display = 'none';
+      game.battle.actionMode = 'selected';
+      updateProfileStatus(hero);
+    }
+  });
+}
+
 export function showTurnOverlay(text) {
   const overlay = document.getElementById('turnOverlay');
   if (!overlay) {
@@ -162,10 +168,8 @@ export function showTurnOverlay(text) {
     return;
   }
   
-  // Ganti newline dengan <br> untuk menampilkan baris baru
   content.innerHTML = text.replace(/\n/g, '<br>');
   
-  // Reset animasi
   content.style.opacity = '0';
   content.style.transform = 'translateY(-20px)';
   overlay.style.display = 'flex';
