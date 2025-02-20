@@ -71,6 +71,10 @@ export default class Game {
     // Load selected indicator image untuk enemy
     this.selectedIndicator = new Image();
     this.selectedIndicator.src = "assets/selected.png";
+    // Pastikan jika terjadi error pada selectedIndicator, gunakan fallback (opsional)
+    this.selectedIndicator.onerror = () => {
+      console.error("Selected indicator gagal dimuat.");
+    };
 
     // Inisialisasi state turn-based
     this.turnPhase = 'start'; // 'start', 'hero', 'enemy'
@@ -96,7 +100,7 @@ export default class Game {
   }
 
   // Fungsi pembantu: Kumpulkan candidate cell dalam jangkauan enemy.
-  // Kandidat mencakup cell asal (agar enemy dapat memilih untuk tidak bergerak)
+  // Kandidat mencakup cell asal agar enemy dapat memilih untuk tidak bergerak.
   getCandidateCells(enemy) {
     const candidates = [];
     const range = enemy.movementRange;
@@ -135,7 +139,7 @@ export default class Game {
     ctx.restore();
   }
 
-  // Fungsi untuk memproses enemy secara berurutan dalam fase enemy turn
+  // Fungsi untuk memproses enemy secara berurutan dalam fase enemy turn dengan timeout
   processNextEnemy() {
     if (this.currentEnemyIndex >= this.battle.enemies.length) {
       this.enemyTurnProcessing = false;
@@ -219,7 +223,7 @@ export default class Game {
       if (allHeroesActed) {
         setTimeout(() => {
           this.turnPhase = 'enemy';
-          window.gameOverlayActive = true; // Nonaktifkan input selama giliran enemy
+          window.gameOverlayActive = true;
         }, 1000);
       }
     } else if (this.turnPhase === 'enemy') {
@@ -262,18 +266,19 @@ export default class Game {
       }
     }
 
-    // Gambar selected indicator dan initial position overlay untuk enemy
+    // Gambar selected indicator untuk enemy
     this.battle.enemies.forEach(enemy => {
       if (enemy.selected) {
         const pos = this.grid.getCellPosition(enemy.col, enemy.row);
-        ctx.drawImage(this.selectedIndicator, pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
-      }
-      if (enemy.isMoving && enemy.initialPosition) {
-        const pos = this.grid.getCellPosition(enemy.initialPosition.col, enemy.initialPosition.row);
-        ctx.save();
-        ctx.fillStyle = "rgba(255,0,0,0.35)";
-        ctx.fillRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
-        ctx.restore();
+        if (this.selectedIndicator.complete && this.selectedIndicator.naturalWidth > 0) {
+          ctx.drawImage(
+            this.selectedIndicator,
+            pos.x - this.camera.x,
+            pos.y - this.camera.y,
+            this.grid.tileSize,
+            this.grid.tileSize
+          );
+        }
       }
     });
 
