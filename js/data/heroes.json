@@ -28,7 +28,7 @@
     "def": 4,
     "res": 3,
     "magicSkill": "Ice Shard",
-    "attackRange": 1,
+    "attackRange": 3,
     "hexRange": 2,
     "spriteUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/Idle%20(2).png",
     "portraitUrl": "https://ik.imagekit.io/ij05ikv7z/Hero/pot-unit.png",

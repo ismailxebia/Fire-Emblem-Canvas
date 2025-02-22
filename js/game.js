@@ -15,18 +15,15 @@ export default class Game {
     this.lastTime = 0;
     this.camera = { x: 0, y: 0 };
 
-    // Muat data stage (termasuk properti battleName)
     this.stageData = loadStageData();
     this.backgroundImage = new Image();
     this.backgroundImage.src = this.stageData.backgroundUrl;
 
-    // Inisialisasi grid
     this.grid = new Grid(6, 12, canvas.width);
     if (this.stageData.obstacles) {
       this.grid.obstacles = this.stageData.obstacles;
     }
 
-    // Inisialisasi battle
     this.battle = new Battle(this.grid);
     if (this.stageData.heroPositions) {
       this.battle.heroes.forEach((hero, index) => {
@@ -43,7 +40,6 @@ export default class Game {
           enemy.col = this.stageData.enemyPositions[index].col;
           enemy.row = this.stageData.enemyPositions[index].row;
           enemy.actionTaken = false;
-          // Pastikan enemy menggunakan hexRange dari data JSON
           enemy.hexRange = this.stageData.enemyPositions[index].hexRange || 1;
           enemy.movementRange = enemy.hexRange;
         }
@@ -68,29 +64,28 @@ export default class Game {
     const stageHeight = this.grid.stageHeight || canvas.height;
     this.effectManager = new EffectManager(stageWidth, stageHeight, this.stageData.effects);
 
-    // Load selected indicator image untuk enemy
     this.selectedIndicator = new Image();
     this.selectedIndicator.src = "assets/Selected.png";
     this.selectedIndicator.onerror = () => {
       console.error("Selected indicator gagal dimuat.");
     };
 
-    // Inisialisasi state turn-based
-    this.turnPhase = 'start'; // 'start', 'hero', 'enemy'
+    this.turnPhase = 'start';
     this.turnNumber = 1;
     window.gameOverlayActive = true;
     showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
     setTimeout(() => {
       this.turnPhase = 'hero';
       window.gameOverlayActive = false;
+      // Reset attack mode ketika giliran hero dimulai
+      this.attackMode = false;
     }, 3000);
 
-    // Untuk memproses enemy secara berurutan
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
+    this.attackMode = false; // Flag attack mode
   }
 
-  // Fungsi pembantu: Periksa apakah suatu cell sudah ditempati (obstacle, hero, atau enemy)
   isCellOccupied(col, row) {
     if (this.grid.obstacles && this.grid.obstacles.some(o => o.col === col && o.row === row)) return true;
     if (this.battle.heroes.some(hero => hero.col === col && hero.row === row)) return true;
@@ -98,8 +93,6 @@ export default class Game {
     return false;
   }
 
-  // Fungsi pembantu: Kumpulkan candidate cell dalam jangkauan enemy.
-  // Kandidat mencakup cell asal agar enemy dapat memilih untuk tidak bergerak.
   getCandidateCells(enemy) {
     const candidates = [];
     const range = enemy.movementRange;
@@ -118,7 +111,6 @@ export default class Game {
     return candidates;
   }
 
-  // Fungsi untuk menggambar hex range overlay untuk enemy
   drawEnemyHexRange(enemy, ctx) {
     const hexRange = enemy.hexRange;
     ctx.save();
@@ -138,7 +130,60 @@ export default class Game {
     ctx.restore();
   }
 
-  // Fungsi untuk memproses enemy secara berurutan dalam fase enemy turn dengan timeout
+  drawAttackRangeOverlay(hero, ctx) {
+    const attackRange = hero.attackRange;
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.15)"; // fill putih transparan 15%
+    ctx.strokeStyle = "rgba(255,255,255,0.3)"; // stroke putih
+    ctx.lineWidth = 2;
+    for (let c = hero.col - attackRange; c <= hero.col + attackRange; c++) {
+      for (let r = hero.row - attackRange; r <= hero.row + attackRange; r++) {
+        if (Math.abs(c - hero.col) + Math.abs(r - hero.row) <= attackRange) {
+          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
+          const pos = this.grid.getCellPosition(c, r);
+          ctx.fillRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
+          ctx.strokeRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  checkAttackAvailability() {
+    if (this.turnPhase === 'hero' && this.battle.selectedHero && !this.battle.selectedHero.actionTaken) {
+      let available = false;
+      const hero = this.battle.selectedHero;
+      for (let enemy of this.battle.enemies) {
+        const distance = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
+        if (distance <= hero.attackRange) {
+          available = true;
+          break;
+        }
+      }
+  
+      const attackBtn = document.getElementById('btnAttack');
+      const btnAttackConfirm = document.getElementById('btnAttackConfirm');
+  
+      // Pastikan elemen ada
+      if (attackBtn && btnAttackConfirm) {
+        if (available) {
+          attackBtn.style.display = 'inline-block';
+  
+          if (this.attackMode) {
+            btnAttackConfirm.style.display = 'none';
+          } else {
+            btnAttackConfirm.style.display = 'inline-block';
+          }
+  
+        } else {
+          attackBtn.style.display = 'none';
+          btnAttackConfirm.style.display = 'none';
+        }
+      }
+    }
+  }
+  
+
   processNextEnemy() {
     if (this.currentEnemyIndex >= this.battle.enemies.length) {
       this.enemyTurnProcessing = false;
@@ -161,16 +206,13 @@ export default class Game {
       this.processNextEnemy();
       return;
     }
-    // Tampilkan overlay hex range dan selected indicator untuk enemy aktif
     enemy.showHexRange = true;
     enemy.selected = true;
     updateProfileStatus(enemy);
 
     setTimeout(() => {
-      // Dapatkan candidate cell yang valid dalam jangkauan enemy
       let candidates = this.getCandidateCells(enemy);
       let dest = { col: enemy.col, row: enemy.row };
-      // Pilih target hero terdekat (heuristik sederhana)
       let targetHero = null;
       let minDist = Infinity;
       this.battle.heroes.forEach(hero => {
@@ -193,7 +235,6 @@ export default class Game {
         if (bestCandidate) dest = bestCandidate;
       }
       
-      // Simpan posisi awal enemy sebelum bergerak (untuk overlay initial position)
       enemy.initialPosition = { col: enemy.col, row: enemy.row };
       
       setTimeout(() => {
@@ -218,6 +259,7 @@ export default class Game {
     }
 
     if (this.turnPhase === 'hero') {
+      this.checkAttackAvailability();
       const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken);
       if (allHeroesActed) {
         setTimeout(() => {
@@ -256,6 +298,11 @@ export default class Game {
       this.effectManager.render(ctx, this.camera);
     }
     this.grid.render(ctx, this.camera);
+
+    // Jika mode attack aktif, gambar overlay attack range untuk hero yang dipilih
+    if (this.turnPhase === 'hero' && this.attackMode && this.battle.selectedHero) {
+      this.drawAttackRangeOverlay(this.battle.selectedHero, ctx);
+    }
 
     // Gambar overlay hex range untuk enemy yang sedang aktif (di bawah unit)
     if (this.turnPhase === 'enemy' && this.enemyTurnProcessing && this.currentEnemyIndex < this.battle.enemies.length) {

@@ -16,14 +16,15 @@ export async function loadHeroData() {
         data.row,
         data.hp,
         data.atk,
-        data.hexRange,  // atau data.movementRange, sesuai kebutuhan
+        data.hexRange,  // Bisa juga menggunakan data.movementRange jika tersedia
         data.spriteUrl,
         data.portraitUrl,
         data.level,
         data.star,
         data.spd,
         data.def,
-        data.res
+        data.res,
+        data.attackRange  // Properti attackRange
       );
     });
     return heroes;

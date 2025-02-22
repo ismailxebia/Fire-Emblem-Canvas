@@ -25,11 +25,13 @@ export class Hero {
    * @param {number} attack - Nilai serangan.
    * @param {number} movementRange - Jangkauan pergerakan (dalam cell), default 3.
    * @param {string} spriteUrl - URL spritesheet terpadu hero.
+   * @param {string} portraitUrl - URL portrait hero.
    * @param {number} level - Level hero.
    * @param {number} star - Jumlah bintang/evolusi.
    * @param {number} spd - Kecepatan.
    * @param {number} def - Pertahanan.
    * @param {number} res - Resistensi.
+   * @param {number} attackRange - Jangkauan serangan (attack range).
    */
   constructor(
     name,
@@ -44,7 +46,8 @@ export class Hero {
     star = 1,
     spd,
     def,
-    res
+    res,
+    attackRange = 1
   ) {
     this.name = name;
     this.col = col;
@@ -53,13 +56,14 @@ export class Hero {
     this.attack = attack;
     this.movementRange = movementRange;
     this.moveSpeed = DEFAULT_MOVE_SPEED;
+    this.attackRange = attackRange; // Tambahan properti attackRange
 
     // Properti tambahan dari JSON
     this.level = level;
     this.star = star;
-    this.spd = spd;       // Pastikan nilai ini dioper dari JSON
-    this.def = def;       // Pastikan nilai ini dioper dari JSON
-    this.res = res;       // Pastikan nilai ini dioper dari JSON
+    this.spd = spd;
+    this.def = def;
+    this.res = res;
 
     // Pemuatan spritesheet terpadu
     this.spriteUrl = spriteUrl;
@@ -164,7 +168,6 @@ export class Hero {
       const drawX = cellCenterX - imgWidth / 2;
       const drawY = cellBottomY - imgHeight;
 
-      // Jika hero sudah bertindak, terapkan efek grayscale
       let prevFilter = ctx.filter;
       if (this.actionTaken) {
         ctx.filter = "grayscale(100%)";

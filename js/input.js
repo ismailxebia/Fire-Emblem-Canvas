@@ -40,7 +40,7 @@ export function handleInput(game) {
 
   // Pointer down
   game.canvas.addEventListener('pointerdown', (e) => {
-    if (window.gameOverlayActive) return;
+    if (window.gameOverlayActive && game.turnPhase !== 'enemy') return;
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -48,9 +48,9 @@ export function handleInput(game) {
     game.canvas.setPointerCapture(e.pointerId);
   });
 
-  // Pointer move
+  // Pointer move (untuk dragging/scrolling)
   game.canvas.addEventListener('pointermove', (e) => {
-    if (window.gameOverlayActive) return;
+    if (window.gameOverlayActive && game.turnPhase !== 'enemy') return;
     if (!isDragging) return;
     const currentX = e.clientX;
     const currentY = e.clientY;
@@ -70,7 +70,49 @@ export function handleInput(game) {
 
   // Pointer up
   game.canvas.addEventListener('pointerup', (e) => {
+    // Jika mode attack aktif, cek apakah klik berada di dalam area overlay attack range.
+    if (game.attackMode && game.battle.selectedHero) {
+      const hero = game.battle.selectedHero;
+      const tileSize = game.grid.tileSize;
+      const attackRange = hero.attackRange;
+      const heroPos = game.grid.getCellPosition(hero.col, hero.row);
+      // Bounding box overlay attack range
+      const minX = heroPos.x - attackRange * tileSize - game.camera.x;
+      const minY = heroPos.y - attackRange * tileSize - game.camera.y;
+      const maxX = heroPos.x + (attackRange + 1) * tileSize - game.camera.x;
+      const maxY = heroPos.y + (attackRange + 1) * tileSize - game.camera.y;
+      
+      const rect = game.canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      
+      // Jika klik di luar area attack overlay, cancel attack mode.
+      if (clickX < minX || clickX > maxX || clickY < minY || clickY > maxY) {
+        game.attackMode = false;
+        const confirmMenu = document.getElementById('confirmMenu');
+        confirmMenu.style.display = 'none';
+        updateProfileStatus(null);
+        game.canvas.releasePointerCapture(e.pointerId);
+        isDragging = false;
+        hasMoved = false;
+        return;
+      }
+      // Jika klik di dalam area, jangan memproses seleksi lagi.
+      game.canvas.releasePointerCapture(e.pointerId);
+      isDragging = false;
+      hasMoved = false;
+      return;
+    }
+
     if (window.gameOverlayActive) return;
+    // Pada fase enemy, lepas pointer capture tanpa proses seleksi.
+    if (game.turnPhase === 'enemy') {
+      game.canvas.releasePointerCapture(e.pointerId);
+      isDragging = false;
+      hasMoved = false;
+      return;
+    }
+    // MODE ketika tidak terjadi dragging (tap/click)
     if (!hasMoved) {
       const rect = game.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -148,11 +190,10 @@ export function handleInput(game) {
           updateProfileStatus(game.battle.selectedHero);
         }
       }
-      // MODE NORMAL: proses seleksi/deseleksi unit (hero atau enemy)
+      // MODE NORMAL: seleksi/deseleksi unit (hero atau enemy)
       else {
         const clickedHero = getHeroAtCell(col, row);
         if (clickedHero) {
-          // Saat memilih hero, clear semua selected enemy dan reset lastSelectedEnemy
           game.battle.enemies.forEach(enemy => enemy.selected = false);
           lastSelectedEnemy = null;
           if (clickedHero.actionTaken) {
@@ -176,11 +217,9 @@ export function handleInput(game) {
         } else {
           const clickedEnemy = getEnemyAtCell(col, row);
           if (clickedEnemy) {
-            // Saat memilih enemy, clear selected hero
             game.battle.selectedHero = null;
-            // Jika enemy yang sama sudah dipilih sebelumnya, jangan panggil update lagi
             if (lastSelectedEnemy === clickedEnemy) {
-              // Tidak memanggil updateProfileStatus lagi
+              // Jika enemy yang sama sudah dipilih sebelumnya, tidak panggil update ulang
             } else {
               game.battle.enemies.forEach(enemy => enemy.selected = false);
               clickedEnemy.selected = true;

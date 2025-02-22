@@ -3,9 +3,15 @@
 export function setupActionMenu(game) {
   const actionMenu = document.getElementById('actionMenu');
   const confirmMenu = document.getElementById('confirmMenu');
+  const btnAttackConfirm = document.getElementById('btnAttackConfirm');
+  const btnConfirm = document.getElementById('btnConfirm');
+  const btnCancel = document.getElementById('btnCancel');
 
   // Tombol Move: Masuk ke mode move dan siapkan pendingMove
   document.getElementById('btnMove').addEventListener('click', () => {
+    game.attackMode = false; // non-attack mode
+    btnAttackConfirm.style.display = 'none';
+    btnConfirm.style.display = 'inline-block'; // untuk mode move
     if (game.battle.selectedHero) {
       game.battle.actionMode = 'move';
       if (!game.battle.pendingMove) {
@@ -23,20 +29,46 @@ export function setupActionMenu(game) {
     actionMenu.style.display = 'none';
   });
 
-  // Tombol Wait: Menandai bahwa hero telah bertindak (actionTaken true) dan tidak melakukan perpindahan
+  // Tombol Wait: Tandai hero telah bertindak (tanpa move)
   document.getElementById('btnWait').addEventListener('click', () => {
     if (game.battle.selectedHero) {
       game.battle.selectedHero.actionTaken = true;
     }
+    game.attackMode = false;
+    btnAttackConfirm.style.display = 'none';
+    btnConfirm.style.display = 'inline-block';
     actionMenu.style.display = 'none';
     game.battle.selectedHero = null;
     game.battle.actionMode = 'normal';
     updateProfileStatus(null);
   });
 
-  // Tombol Attack (placeholder)
+  // Tombol Attack (di action menu):
+  // Masuk ke attack mode, tampilkan confirmMenu dengan hanya tombol Cancel
   document.getElementById('btnAttack').addEventListener('click', () => {
-    alert('Attack action placeholder');
+    if (game.battle.selectedHero && !game.battle.selectedHero.actionTaken) {
+      const hero = game.battle.selectedHero;
+      // Cek apakah ada enemy dalam attack range (untuk memunculkan tombol di actionMenu jika dibutuhkan)
+      let canAttack = false;
+      for (let enemy of game.battle.enemies) {
+        const distance = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
+        if (distance <= hero.attackRange) {
+          canAttack = true;
+          break;
+        }
+      }
+      // Masuk attack mode
+      game.attackMode = true;
+      game.battle.actionMode = 'selected';
+      actionMenu.style.display = 'none';
+      // Tampilkan confirmMenu, namun sembunyikan tombol AttackConfirm dan Confirm
+      confirmMenu.style.display = 'block';
+      btnAttackConfirm.style.display = 'none';
+      btnConfirm.style.display = 'none';
+      // Hanya tombol Cancel yang harus tampil
+      btnCancel.style.display = 'inline-block';
+      updateProfileStatus(hero);
+    }
   });
 
   // Tombol Magic (placeholder)
@@ -44,29 +76,56 @@ export function setupActionMenu(game) {
     alert('Magic action placeholder');
   });
 
-  // Tombol Confirm: Finalisasi perpindahan, tandai bahwa hero telah bertindak
-  document.getElementById('btnConfirm').addEventListener('click', () => {
+  // Tombol Confirm: Finalisasi perpindahan (mode move)
+  btnConfirm.addEventListener('click', () => {
     if (game.battle.pendingMove) {
-      // Tandai hero telah bertindak setelah move dikonfirmasi
       game.battle.pendingMove.hero.actionTaken = true;
       game.battle.pendingMove = null;
       confirmMenu.style.display = 'none';
       game.battle.actionMode = 'normal';
+      game.attackMode = false;
+      btnAttackConfirm.style.display = 'none';
+      btnConfirm.style.display = 'inline-block';
       game.battle.selectedHero = null;
       updateProfileStatus(null);
     }
   });
 
-  // Tombol Cancel: Batalkan perpindahan dan kembalikan posisi hero
-  document.getElementById('btnCancel').addEventListener('click', () => {
+  // Tombol Attack Confirm: (Placeholder, tidak aktif di fase attack)
+  btnAttackConfirm.addEventListener('click', () => {
+    if (game.battle.selectedHero && game.attackMode) {
+      alert('Attack action executed (via Attack Confirm placeholder)');
+      game.battle.selectedHero.actionTaken = true;
+      game.battle.actionMode = 'normal';
+      game.attackMode = false;
+      btnAttackConfirm.style.display = 'none';
+      confirmMenu.style.display = 'none';
+      updateProfileStatus(null);
+    }
+  });
+
+  // Tombol Cancel: Batalkan move/attack, kembalikan posisi hero atau batalkan attack mode
+  btnCancel.addEventListener('click', () => {
     if (game.battle.pendingMove) {
+      // Batalkan perpindahan (mode move)
       const hero = game.battle.pendingMove.hero;
       hero.col = game.battle.pendingMove.originalPosition.col;
       hero.row = game.battle.pendingMove.originalPosition.row;
       game.battle.pendingMove = null;
       confirmMenu.style.display = 'none';
       game.battle.actionMode = 'selected';
+      game.attackMode = false;
+      btnAttackConfirm.style.display = 'none';
+      btnConfirm.style.display = 'inline-block';
       updateProfileStatus(hero);
+    } else if (game.attackMode) {
+      // Jika di fase attack (tanpa pending move), batalkan attack mode
+      confirmMenu.style.display = 'none';
+      game.attackMode = false;
+      game.battle.actionMode = 'selected';
+      // Tampilkan kembali actionMenu dengan tombol Attack dan Wait (sesuai kebutuhan)
+      actionMenu.style.display = 'block';
+      updateProfileStatus(game.battle.selectedHero);
     }
   });
 }
@@ -82,14 +141,10 @@ export function updateProfileStatus(unit) {
 
   if (!unit) return;
 
-  // Update gambar hero; gunakan portraitUrl jika ada, atau spriteUrl sebagai fallback
   portraitImg.src = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
-  // Update level tag
   levelTagElem.textContent = `LV ${unit.level || 1}`;
-  // Update nama hero
   heroNameElem.textContent = unit.name || 'Unknown';
 
-  // Update bintang: asumsikan maksimal 3 bintang
   let starHTML = '';
   const maxStars = 3;
   const activeStars = unit.star || 1;
@@ -102,14 +157,12 @@ export function updateProfileStatus(unit) {
   }
   starsContainer.innerHTML = starHTML;
 
-  // Update HP bar
   const currentHP = unit.health;
   const maxHP = unit.maxHealth || unit.health;
   const hpPercent = (currentHP / maxHP) * 100;
   hpFillElem.style.width = `${hpPercent}%`;
   hpValueElem.textContent = `${currentHP} / ${maxHP}`;
 
-  // Update atribut/statistik
   attributesContainer.innerHTML = `
     <span class="stat">ATK : ${unit.attack || 0}</span>
     <span class="stat">DEF : ${unit.def || 0}</span>
@@ -118,7 +171,6 @@ export function updateProfileStatus(unit) {
   `;
 }
 
-// Fungsi untuk menampilkan overlay turn sebagai elemen DOM
 export function showTurnOverlay(text) {
   const overlay = document.getElementById('turnOverlay');
   if (!overlay) {
@@ -131,28 +183,19 @@ export function showTurnOverlay(text) {
     return;
   }
   
-  // Ganti newline dengan <br> untuk menampilkan baris baru
   content.innerHTML = text.replace(/\n/g, '<br>');
   
-  // Reset state animasi
   content.style.opacity = '0';
   content.style.transform = 'translateY(-20px)';
-  
-  // Tampilkan overlay
   overlay.style.display = 'flex';
-  
-  // Trigger reflow agar transition berjalan
   void content.offsetWidth;
   
-  // Animasi fade in dan slide down
   content.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
   content.style.opacity = '1';
   content.style.transform = 'translateY(0)';
   
-  // Disable interaksi game sementara overlay aktif
   window.gameOverlayActive = true;
   
-  // Setelah 3 detik, animasikan keluar dan sembunyikan overlay
   setTimeout(() => {
     content.style.opacity = '0';
     content.style.transform = 'translateY(-20px)';
