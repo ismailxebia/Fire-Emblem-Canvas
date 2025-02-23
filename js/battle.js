@@ -14,13 +14,6 @@ function smoothStep(edge0, edge1, x) {
 
 /**
  * Fungsi A* sederhana untuk pathfinding dengan dukungan obstacle dan batas range.
- * Menggunakan Manhattan distance sebagai heuristic.
- * @param {object} grid - Objek grid dengan properti: cols, rows, getCellPosition(col, row) dan obstacles.
- * @param {object} start - Objek { col, row } sebagai titik awal.
- * @param {object} goal - Objek { col, row } sebagai titik tujuan.
- * @param {number} maxRange - Batas maksimum (Manhattan distance) dari titik awal.
- * @param {Array} enemyUnits - Array unit enemy yang dianggap sebagai obstacle.
- * @returns {Array} Array node yang membentuk jalur dari start ke goal, atau [] jika tidak ditemukan jalur.
  */
 function findPath(grid, start, goal, maxRange, enemyUnits = []) {
   function createNode(col, row, g, h, f, parent) {
@@ -108,15 +101,15 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
 export default class Battle {
   constructor(grid) {
     this.grid = grid;
-
+    // Agar battle dapat mengakses game.diagonalPattern
+    this.game = null;
     // Inisialisasi heroes (dengan variasi movementRange)
     this.heroes = [
-      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png',3),
-      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png',3),
+      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png', 3),
+      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png', 3),
       new Hero('HeroC', 2, 3, 80, 25, 1, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20A.png'),
       new Hero('HeroD', 3, 3, 70, 15, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20D.png')
     ];
-
     // Inisialisasi enemies
     this.enemies = [
       new Enemy('Enemy1', 0, 8, 50, 15),
@@ -124,23 +117,23 @@ export default class Battle {
       new Enemy('Enemy3', 2, 9, 40, 12),
       new Enemy('Enemy4', 3, 8, 80, 20)
     ];
-
+  
     // Properti state pertarungan
     this.currentTurn = 'hero';
     this.selectedHero = null;
     this.actionMode = 'normal'; // 'normal', 'selected', atau 'move'
     this.pendingMove = null;    // { hero, originalPosition: {col, row}, newPosition: {col, row} }
-
+  
     this.findPath = (grid, start, goal, maxRange) => {
       return findPath(grid, start, goal, maxRange, this.enemies);
     };
-
+  
     this.hexOverlayProgress = 0; // Nilai 0 = overlay tidak terlihat, 1 = overlay penuh
-
+  
     this.indicatorImage = new Image();
     this.indicatorImage.src = 'assets/Selected.png';
   }
-
+  
   update(deltaTime) {
     // Update semua heroes
     this.heroes.forEach(hero => {
@@ -161,18 +154,16 @@ export default class Battle {
       this.hexOverlayProgress = Math.max(this.hexOverlayProgress - deltaTime / 500, 0);
     }
   }
-
+  
   render(ctx, camera) {
-    // --- Render Hex Range Overlay dan Path Line (jika mode move) ---
+    // --- Render Move Range Overlay (jika actionMode 'move') ---
     if (this.actionMode === 'move' && this.pendingMove) {
       const origin = this.pendingMove.originalPosition;
       const range = this.pendingMove.hero.movementRange;
-      // Parameter untuk animasi gelombang: delay per cell dan durasi transisi tiap cell.
-      const delayFactor = 0.2;         
-      const activationDuration = 0.3;    
-      
+      const delayFactor = 0.2;
+      const activationDuration = 0.3;
       const easedGlobalProgress = easeInOutQuad(this.hexOverlayProgress);
-      
+  
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
@@ -181,30 +172,37 @@ export default class Battle {
             const cellPos = this.grid.getCellPosition(c, r);
             ctx.save();
             const cellDelay = distance * delayFactor;
-            // Gunakan smoothStep untuk menghitung cellProgress (interpolasi easing per cell)
             const cellProgress = Math.min(Math.max((easedGlobalProgress - cellDelay) / activationDuration, 0), 1);
             const finalProgress = cellProgress === 1 ? 1 : cellProgress;
-            
+  
+            // Cek occupant: bisa hero lain atau enemy
             const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
                                   this.enemies.find(e => e.col === c && e.row === r);
-            // Tentukan warna overlay berdasarkan validitas cell (dengan pathfinding)
+  
+            // Tentukan warna overlay berdasarkan validitas cell (menggunakan pathfinding)
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
             let baseAlpha, baseColor;
             if (cellPath.length === 0 || (cellPath.length - 1) > range) {
               baseAlpha = 0.3;
               baseColor = '255,0,0'; // Merah untuk tidak dapat dijangkau
             } else {
-              if (occupyingUnit) {
-                baseAlpha = 0.15;
-              } else {
-                baseAlpha = 0.3;
-              }
-              baseColor = '0,0,255';
+              baseAlpha = occupyingUnit ? 0.15 : 0.3;
+              baseColor = '0,0,255'; // Biru untuk dapat dijangkau
             }
             const finalAlpha = finalProgress * baseAlpha;
             ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
             ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-            
+  
+            // [Tambahan Pattern] Jika cell ditempati enemy, timpa dengan pattern diagonal
+            const occupyingEnemy = this.enemies.find(e => e.col === c && e.row === r && e.health > 0);
+            if (occupyingEnemy && this.game && this.game.diagonalPattern) {
+              ctx.save();
+              ctx.fillStyle = this.game.diagonalPattern;
+              ctx.globalAlpha = 0.5; // Atur transparansi pattern
+              ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+              ctx.restore();
+            }
+  
             if (!occupyingUnit && cellProgress === 1) {
               ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
               ctx.lineWidth = 2;
@@ -214,67 +212,30 @@ export default class Battle {
           }
         }
       }
-      
-      if (this.pendingMove.newPosition) {
-        const goal = this.pendingMove.newPosition;
-        const maxRange = this.pendingMove.hero.movementRange;
-        const path = this.findPath(this.grid, origin, goal, maxRange);
-        if (path.length > 0 && (path.length - 1) <= maxRange) {
-          ctx.save();
-          const getCellCenter = (cell) => {
-            const pos = this.grid.getCellPosition(cell.col, cell.row);
-            return { x: pos.x + this.grid.tileSize / 2, y: pos.y + this.grid.tileSize / 2 };
-          };
-          const startPos = getCellCenter(path[0]);
-          const endPos = getCellCenter(path[path.length - 1]);
-          const gradient = ctx.createLinearGradient(startPos.x - camera.x, startPos.y - camera.y,
-                                                    endPos.x - camera.x, endPos.y - camera.y);
-          gradient.addColorStop(0, 'rgba(138,127,255,0.8)');
-          gradient.addColorStop(1, 'rgba(144,89,255,0.8)');
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 20;
-          ctx.lineJoin = 'round';
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          let prev = getCellCenter(path[0]);
-          ctx.moveTo(prev.x - camera.x, prev.y - camera.y);
-          for (let i = 1; i < path.length; i++) {
-            const current = getCellCenter(path[i]);
-            if (i < path.length - 1) {
-              const next = getCellCenter(path[i + 1]);
-              ctx.arcTo(current.x - camera.x, current.y - camera.y,
-                        next.x - camera.x, next.y - camera.y,
-                        12);
-            } else {
-              ctx.lineTo(current.x - camera.x, current.y - camera.y);
-            }
-          }
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
+  
+      // Jika ada pendingMove.newPosition, gambarkan path (kode path bisa disisipkan di sini)
     }
-    
-    // --- Render Heroes (sorted berdasarkan pixelY agar layering benar) ---
+  
+    // --- Render Heroes ---
     this.heroes.sort((a, b) => a.pixelY - b.pixelY);
     this.heroes.forEach(hero => {
       if (hero.health > 0) {
         hero.render(ctx, this.grid, camera);
       }
     });
-    
+  
     // --- Render Enemies ---
     this.enemies.forEach(enemy => {
       if (enemy.health > 0) {
         enemy.render(ctx, this.grid, camera);
       }
     });
-    
+  
     // --- Render Indikator Seleksi Hero ---
     if (this.selectedHero && typeof this.selectedHero.col === 'number' && typeof this.selectedHero.row === 'number') {
       const pos = this.grid.getCellPosition(this.selectedHero.col, this.selectedHero.row);
       ctx.save();
-      if (this.indicatorImage && this.indicatorImage.complete && this.indicatorImage.naturalWidth > 0) {
+      if (this.indicatorImage.complete && this.indicatorImage.naturalWidth > 0) {
         ctx.drawImage(this.indicatorImage, pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
       } else {
         ctx.strokeStyle = 'yellow';

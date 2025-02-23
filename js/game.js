@@ -11,7 +11,7 @@ import { showTurnOverlay, updateProfileStatus } from './ui.js';
 export default class Game {
   constructor(canvas, ctx) {
     this.canvas = canvas;
-    this.ctx = ctx;
+    this.ctx = ctx;  // Simpan reference ctx agar bisa dipakai buat pattern
     this.lastTime = 0;
     this.camera = { x: 0, y: 0 };
 
@@ -25,6 +25,9 @@ export default class Game {
     }
 
     this.battle = new Battle(this.grid);
+    // Penting: beri battle akses ke game untuk pattern
+    this.battle.game = this;
+
     if (this.stageData.heroPositions) {
       this.battle.heroes.forEach((hero, index) => {
         if (this.stageData.heroPositions[index]) {
@@ -69,6 +72,22 @@ export default class Game {
     this.selectedIndicator.onerror = () => {
       console.error("Selected indicator gagal dimuat.");
     };
+
+    // Membuat offscreen canvas untuk pattern diagonal
+    const patternCanvas = document.createElement('canvas');
+    patternCanvas.width = 12;   // Sesuaikan ukuran pattern
+    patternCanvas.height = 12;
+    const pctx = patternCanvas.getContext('2d');
+    // Gambar garis diagonal pada offscreen canvas
+    pctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    pctx.lineWidth = 3;
+    pctx.beginPath();
+    pctx.moveTo(0, 0);
+    // Gambar garis dari (0,0) ke (24,24) sehingga pattern akan repeat
+    pctx.lineTo(24, 24);
+    pctx.stroke();
+    // Buat pattern (repeat) dan simpan ke properti
+    this.diagonalPattern = this.ctx.createPattern(patternCanvas, 'repeat');
 
     this.turnPhase = 'start';
     this.turnNumber = 1;
@@ -130,25 +149,42 @@ export default class Game {
     ctx.restore();
   }
 
+  // drawAttackRangeOverlay (untuk fase attack)
   drawAttackRangeOverlay(hero, ctx) {
     const attackRange = hero.attackRange;
     ctx.save();
     ctx.fillStyle = "rgba(255,255,255,0.15)"; // fill putih transparan 15%
     ctx.strokeStyle = "rgba(255,255,255,0.3)"; // stroke putih
     ctx.lineWidth = 2;
+  
     for (let c = hero.col - attackRange; c <= hero.col + attackRange; c++) {
       for (let r = hero.row - attackRange; r <= hero.row + attackRange; r++) {
         if (Math.abs(c - hero.col) + Math.abs(r - hero.row) <= attackRange) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
           const pos = this.grid.getCellPosition(c, r);
-          ctx.fillRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
-          ctx.strokeRect(pos.x - this.camera.x, pos.y - this.camera.y, this.grid.tileSize, this.grid.tileSize);
+          const cellX = pos.x - this.camera.x;
+          const cellY = pos.y - this.camera.y;
+          const tileSize = this.grid.tileSize;
+  
+          // Overlay dasar
+          ctx.fillRect(cellX, cellY, tileSize, tileSize);
+          ctx.strokeRect(cellX, cellY, tileSize, tileSize);
+  
+          // Cek apakah cell ditempati enemy
+          const occupantEnemy = this.battle.enemies.find(e => e.col === c && e.row === r && e.health > 0);
+          if (occupantEnemy) {
+            ctx.save();
+            ctx.fillStyle = this.diagonalPattern;
+            ctx.fillRect(cellX, cellY, tileSize, tileSize);
+            ctx.restore();
+          }
         }
       }
     }
+  
     ctx.restore();
   }
-
+  
   checkAttackAvailability() {
     if (this.turnPhase === 'hero' && this.battle.selectedHero && !this.battle.selectedHero.actionTaken) {
       let available = false;
@@ -164,17 +200,14 @@ export default class Game {
       const attackBtn = document.getElementById('btnAttack');
       const btnAttackConfirm = document.getElementById('btnAttackConfirm');
   
-      // Pastikan elemen ada
       if (attackBtn && btnAttackConfirm) {
         if (available) {
           attackBtn.style.display = 'inline-block';
-  
           if (this.attackMode) {
             btnAttackConfirm.style.display = 'none';
           } else {
             btnAttackConfirm.style.display = 'inline-block';
           }
-  
         } else {
           attackBtn.style.display = 'none';
           btnAttackConfirm.style.display = 'none';
@@ -183,7 +216,6 @@ export default class Game {
     }
   }
   
-
   processNextEnemy() {
     if (this.currentEnemyIndex >= this.battle.enemies.length) {
       this.enemyTurnProcessing = false;
@@ -199,7 +231,7 @@ export default class Game {
       }, 3000);
       return;
     }
-
+  
     let enemy = this.battle.enemies[this.currentEnemyIndex];
     if (enemy.actionTaken) {
       this.currentEnemyIndex++;
@@ -209,7 +241,7 @@ export default class Game {
     enemy.showHexRange = true;
     enemy.selected = true;
     updateProfileStatus(enemy);
-
+  
     setTimeout(() => {
       let candidates = this.getCandidateCells(enemy);
       let dest = { col: enemy.col, row: enemy.row };
@@ -249,7 +281,7 @@ export default class Game {
       }, 1000);
     }, 1000);
   }
-
+  
   update(timestamp) {
     const deltaTime = timestamp - this.lastTime;
     this.lastTime = timestamp;
@@ -257,7 +289,7 @@ export default class Game {
     if (this.effectManager) {
       this.effectManager.update(deltaTime, this.camera);
     }
-
+  
     if (this.turnPhase === 'hero') {
       this.checkAttackAvailability();
       const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken);
@@ -275,7 +307,7 @@ export default class Game {
       }
     }
   }
-
+  
   render(ctx) {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (this.backgroundImage.complete) {
@@ -293,17 +325,17 @@ export default class Game {
       ctx.fillStyle = '#cccccc';
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-
+  
     if (this.effectManager) {
       this.effectManager.render(ctx, this.camera);
     }
     this.grid.render(ctx, this.camera);
-
+  
     // Jika mode attack aktif, gambar overlay attack range untuk hero yang dipilih
     if (this.turnPhase === 'hero' && this.attackMode && this.battle.selectedHero) {
       this.drawAttackRangeOverlay(this.battle.selectedHero, ctx);
     }
-
+  
     // Gambar overlay hex range untuk enemy yang sedang aktif (di bawah unit)
     if (this.turnPhase === 'enemy' && this.enemyTurnProcessing && this.currentEnemyIndex < this.battle.enemies.length) {
       let enemy = this.battle.enemies[this.currentEnemyIndex];
@@ -311,7 +343,7 @@ export default class Game {
         this.drawEnemyHexRange(enemy, ctx);
       }
     }
-
+  
     // Gambar selected indicator untuk enemy
     this.battle.enemies.forEach(enemy => {
       if (enemy.selected) {
@@ -327,7 +359,7 @@ export default class Game {
         }
       }
     });
-
+  
     this.battle.render(ctx, this.camera);
   }
 }
