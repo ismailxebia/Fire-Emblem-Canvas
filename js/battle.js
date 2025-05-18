@@ -2,6 +2,7 @@
 
 import { Hero } from './entities/hero.js';
 import { Enemy } from './entities/enemy.js';
+import { PathIndicator } from './utils/pathIndicator.js';
 
 function easeInOutQuad(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -47,12 +48,12 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
     });
     return neighbors;
   }
-  
+
   const openSet = [];
   const closedSet = [];
   const startNode = createNode(start.col, start.row, 0, heuristic(start, goal), heuristic(start, goal), null);
   openSet.push(startNode);
-  
+
   while (openSet.length > 0) {
     let currentIndex = 0;
     for (let i = 1; i < openSet.length; i++) {
@@ -62,7 +63,7 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
     }
     const current = openSet.splice(currentIndex, 1)[0];
     closedSet.push(current);
-    
+
     if (current.col === goal.col && current.row === goal.row) {
       const path = [];
       let temp = current;
@@ -72,7 +73,7 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
       }
       return path.reverse();
     }
-    
+
     const neighbors = getNeighbors(current);
     for (const neighbor of neighbors) {
       if (closedSet.find(n => n.col === neighbor.col && n.row === neighbor.row)) continue;
@@ -101,9 +102,7 @@ function findPath(grid, start, goal, maxRange, enemyUnits = []) {
 export default class Battle {
   constructor(grid) {
     this.grid = grid;
-    // Agar battle dapat mengakses game.diagonalPattern
     this.game = null;
-    // Inisialisasi heroes (dengan variasi movementRange)
     this.heroes = [
       new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png', 3),
       new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png', 3),
@@ -117,23 +116,43 @@ export default class Battle {
       new Enemy('Enemy3', 2, 9, 40, 12),
       new Enemy('Enemy4', 3, 8, 80, 20)
     ];
-  
+
     // Properti state pertarungan
     this.currentTurn = 'hero';
     this.selectedHero = null;
     this.actionMode = 'normal'; // 'normal', 'selected', atau 'move'
     this.pendingMove = null;    // { hero, originalPosition: {col, row}, newPosition: {col, row} }
-  
+
     this.findPath = (grid, start, goal, maxRange) => {
       return findPath(grid, start, goal, maxRange, this.enemies);
     };
-  
+
     this.hexOverlayProgress = 0; // Nilai 0 = overlay tidak terlihat, 1 = overlay penuh
-  
+
     this.indicatorImage = new Image();
     this.indicatorImage.src = 'assets/Selected.png';
+    this._loadPathAssets();
   }
-  
+
+  _loadPathAssets() {
+    // Load sekali, self-contained
+    this.pathAssets = {
+      start: Object.assign(new Image(), { src: 'assets/Start.png' }),
+      end: Object.assign(new Image(), { src: 'assets/End.png' }),
+      straight: Object.assign(new Image(), { src: 'assets/Lurus.png' }),
+      corners: {
+        '1,0_0,1': Object.assign(new Image(), { src: 'assets/corner_ED.png' }),
+        '-1,0_0,1': Object.assign(new Image(), { src: 'assets/corner_ED.png' }),
+        '0,1_1,0': Object.assign(new Image(), { src: 'assets/corner_ES.png' }), // Udah bener
+        '-1,0_0,-1': Object.assign(new Image(), { src: 'assets/corner_ES.png' }),
+        '0,-1_-1,0': Object.assign(new Image(), { src: 'assets/corner_ED.png' }), // Udah bener
+        '0,1_-1,0': Object.assign(new Image(), { src: 'assets/corner_NW.png' }),  // Udah bener
+        '1,0_0,-1': Object.assign(new Image(), { src: 'assets/corner_NW.png' }),  // Udah bener
+        '0,-1_1,0': Object.assign(new Image(), { src: 'assets/corner_WN.png' }),  // Udah bener
+      }
+    };
+  }
+
   update(deltaTime) {
     // Update semua heroes
     this.heroes.forEach(hero => {
@@ -154,7 +173,7 @@ export default class Battle {
       this.hexOverlayProgress = Math.max(this.hexOverlayProgress - deltaTime / 500, 0);
     }
   }
-  
+
   render(ctx, camera) {
     // --- Render Move Range Overlay (jika actionMode 'move') ---
     if (this.actionMode === 'move' && this.pendingMove) {
@@ -163,7 +182,7 @@ export default class Battle {
       const delayFactor = 0.2;
       const activationDuration = 0.3;
       const easedGlobalProgress = easeInOutQuad(this.hexOverlayProgress);
-  
+
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
           if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
@@ -174,11 +193,11 @@ export default class Battle {
             const cellDelay = distance * delayFactor;
             const cellProgress = Math.min(Math.max((easedGlobalProgress - cellDelay) / activationDuration, 0), 1);
             const finalProgress = cellProgress === 1 ? 1 : cellProgress;
-  
+
             // Cek occupant: bisa hero lain atau enemy
             const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
-                                  this.enemies.find(e => e.col === c && e.row === r);
-  
+              this.enemies.find(e => e.col === c && e.row === r);
+
             // Tentukan warna overlay berdasarkan validitas cell (menggunakan pathfinding)
             const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
             let baseAlpha, baseColor;
@@ -192,7 +211,7 @@ export default class Battle {
             const finalAlpha = finalProgress * baseAlpha;
             ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
             ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-  
+
             // [Tambahan Pattern] Jika cell ditempati enemy, timpa dengan pattern diagonal
             const occupyingEnemy = this.enemies.find(e => e.col === c && e.row === r && e.health > 0);
             if (occupyingEnemy && this.game && this.game.diagonalPattern) {
@@ -202,7 +221,7 @@ export default class Battle {
               ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
               ctx.restore();
             }
-  
+
             if (!occupyingUnit && cellProgress === 1) {
               ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
               ctx.lineWidth = 2;
@@ -212,10 +231,17 @@ export default class Battle {
           }
         }
       }
-  
-      // Jika ada pendingMove.newPosition, gambarkan path (kode path bisa disisipkan di sini)
+
+      if (this.actionMode === 'move' && this.pendingMove?.newPosition) {
+        const path = this.findPath(this.grid,
+          this.pendingMove.originalPosition,
+          this.pendingMove.newPosition,
+          this.pendingMove.hero.movementRange
+        );
+        PathIndicator.render(ctx, camera, this.grid, path, this.pathAssets);
+      }
     }
-  
+
     // --- Render Heroes ---
     this.heroes.sort((a, b) => a.pixelY - b.pixelY);
     this.heroes.forEach(hero => {
@@ -223,25 +249,30 @@ export default class Battle {
         hero.render(ctx, this.grid, camera);
       }
     });
-  
+
     // --- Render Enemies ---
     this.enemies.forEach(enemy => {
       if (enemy.health > 0) {
         enemy.render(ctx, this.grid, camera);
       }
     });
-  
+
     // --- Render Indikator Seleksi Hero ---
-    if (this.selectedHero && typeof this.selectedHero.col === 'number' && typeof this.selectedHero.row === 'number') {
+    if (
+      this.selectedHero &&
+      this.game.currentTurn === 'hero' &&      // <-- cek giliran di sini
+      typeof this.selectedHero.col === 'number' &&
+      typeof this.selectedHero.row === 'number'
+    ) {
       const pos = this.grid.getCellPosition(this.selectedHero.col, this.selectedHero.row);
       ctx.save();
-      if (this.indicatorImage.complete && this.indicatorImage.naturalWidth > 0) {
-        ctx.drawImage(this.indicatorImage, pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-      } else {
-        ctx.strokeStyle = 'yellow';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(pos.x - camera.x, pos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-      }
+      ctx.drawImage(
+        this.indicatorImage,
+        pos.x - camera.x,
+        pos.y - camera.y,
+        this.grid.tileSize,
+        this.grid.tileSize
+      );
       ctx.restore();
     }
   }
