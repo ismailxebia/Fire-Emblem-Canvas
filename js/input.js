@@ -70,7 +70,7 @@ export function handleInput(game) {
 
   // Pointer up
   game.canvas.addEventListener('pointerup', (e) => {
-    // Jika mode attack aktif, cek apakah klik berada di dalam area overlay attack range.
+    // Jika mode attack aktif, proses pemilihan target atau cancel.
     if (game.attackMode && game.battle.selectedHero) {
       const hero = game.battle.selectedHero;
       const tileSize = game.grid.tileSize;
@@ -89,6 +89,7 @@ export function handleInput(game) {
       // Jika klik di luar area attack overlay, cancel attack mode.
       if (clickX < minX || clickX > maxX || clickY < minY || clickY > maxY) {
         game.attackMode = false;
+        game.attackType = null;
         const confirmMenu = document.getElementById('confirmMenu');
         confirmMenu.style.display = 'none';
         updateProfileStatus(null);
@@ -97,7 +98,27 @@ export function handleInput(game) {
         hasMoved = false;
         return;
       }
-      // Jika klik di dalam area, jangan memproses seleksi lagi.
+      // Jika klik di dalam area, cek apakah mengenai enemy
+      const col = Math.floor((clickX + game.camera.x) / tileSize);
+      const row = Math.floor((clickY + game.camera.y) / tileSize);
+      const enemy = getEnemyAtCell(col, row);
+      if (enemy && Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row) <= hero.attackRange) {
+        game.battle.heroAttack(hero, enemy);
+        const actionMenu = document.getElementById('actionMenu');
+        const confirmMenu = document.getElementById('confirmMenu');
+        actionMenu.style.display = 'none';
+        confirmMenu.style.display = 'none';
+        game.attackMode = false;
+        game.attackType = null;
+        game.battle.selectedHero = null;
+        game.battle.actionMode = 'normal';
+        updateProfileStatus(null);
+        game.canvas.releasePointerCapture(e.pointerId);
+        isDragging = false;
+        hasMoved = false;
+        return;
+      }
+      // Klik di area kosong dalam overlay
       game.canvas.releasePointerCapture(e.pointerId);
       isDragging = false;
       hasMoved = false;

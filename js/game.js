@@ -98,11 +98,13 @@ export default class Game {
       window.gameOverlayActive = false;
       // Reset attack mode ketika giliran hero dimulai
       this.attackMode = false;
+      this.attackType = null;
     }, 3000);
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
     this.attackMode = false; // Flag attack mode
+    this.attackType = null;  // 'physical' atau 'magic'
   }
 
   isCellOccupied(col, row) {
