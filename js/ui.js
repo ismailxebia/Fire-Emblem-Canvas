@@ -59,6 +59,7 @@ export function setupActionMenu(game) {
       }
       // Masuk attack mode
       game.attackMode = true;
+      game.attackType = 'physical';
       game.battle.actionMode = 'selected';
       actionMenu.style.display = 'none';
       // Tampilkan confirmMenu, namun sembunyikan tombol AttackConfirm dan Confirm
@@ -71,9 +72,20 @@ export function setupActionMenu(game) {
     }
   });
 
-  // Tombol Magic (placeholder)
+  // Tombol Magic: serupa dengan Attack tetapi menandai tipe magic
   document.getElementById('btnMagic').addEventListener('click', () => {
-    alert('Magic action placeholder');
+    if (game.battle.selectedHero && !game.battle.selectedHero.actionTaken) {
+      const hero = game.battle.selectedHero;
+      game.attackMode = true;
+      game.attackType = 'magic';
+      game.battle.actionMode = 'selected';
+      actionMenu.style.display = 'none';
+      confirmMenu.style.display = 'block';
+      btnAttackConfirm.style.display = 'none';
+      btnConfirm.style.display = 'none';
+      btnCancel.style.display = 'inline-block';
+      updateProfileStatus(hero);
+    }
   });
 
   // Tombol Confirm: Finalisasi perpindahan (mode move)
@@ -122,6 +134,7 @@ export function setupActionMenu(game) {
       // Jika di fase attack (tanpa pending move), batalkan attack mode
       confirmMenu.style.display = 'none';
       game.attackMode = false;
+      game.attackType = null;
       game.battle.actionMode = 'selected';
       // Tampilkan kembali actionMenu dengan tombol Attack dan Wait (sesuai kebutuhan)
       actionMenu.style.display = 'block';

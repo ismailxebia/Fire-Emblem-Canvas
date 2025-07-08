@@ -134,6 +134,15 @@ export default class Battle {
     this._loadPathAssets();
   }
 
+  heroAttack(hero, enemy) {
+    if (!hero || !enemy || enemy.health <= 0) return;
+    const dist = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
+    if (dist > hero.attackRange) return;
+    enemy.health -= hero.attack;
+    if (enemy.health < 0) enemy.health = 0;
+    hero.actionTaken = true;
+  }
+
   _loadPathAssets() {
     // Load sekali, self-contained
     this.pathAssets = {
