@@ -307,10 +307,7 @@ export default class Game {
     // Clear canvas
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (this.battleScene && this.battleScene.active) {
-      this.battleScene.render(ctx);
-      return;
-    }
+
 
     // Draw background
     if (this.backgroundImage.complete && this.backgroundImage.naturalWidth > 0) {
@@ -365,5 +362,9 @@ export default class Game {
     });
 
     this.battle.render(ctx, this.camera);
+
+    if (this.battleScene && this.battleScene.active) {
+      this.battleScene.render(ctx);
+    }
   }
 }

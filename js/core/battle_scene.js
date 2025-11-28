@@ -23,6 +23,9 @@ export class BattleScene {
 
         // Shake effect
         this.shake = { x: 0, y: 0, intensity: 0 };
+
+        this.battleGrass = new Image();
+        this.battleGrass.src = 'assets/battle-grass.png';
     }
 
     start(attacker, defender, damage, counterDamage, callback) {
@@ -81,17 +84,29 @@ export class BattleScene {
         const w = this.game.canvas.width;
         const h = this.game.canvas.height;
 
-        // Center vertically (Feet position)
-        // Move down to 75% height so the whole body fits better
-        const centerY = h * 0.75;
+        // Calculate grass dimensions to position units
+        let centerY = h * 0.75; // Default fallback
+        if (this.battleGrass && this.battleGrass.complete && this.battleGrass.naturalWidth > 0) {
+            const img = this.battleGrass;
+            const halfW = w / 2;
+            const minH = h * 0.35;
+            const scale = Math.max(halfW / img.width, minH / img.height);
+            const drawH = img.height * scale;
+            const drawY = h - drawH;
 
+            // Position at vertical center of the grass area
+            // Adjust to align feet with the grass surface (approx 35% from top of image)
+            centerY = drawY + (drawH * 0.45);
+        }
+
+        // Center vertically (Feet position)
         // Move units slightly closer to center
         this.leftPos = { x: w * 0.25, y: centerY };
         this.rightPos = { x: w * 0.75, y: centerY };
 
         // Reduced scale further
-        // Base scale 1.1 on 400px width
-        this.scale = Math.max(1.0, Math.min(2.0, (w / 400) * 1.1));
+        // Base scale 0.65 on 400px width (was 0.7)
+        this.scale = Math.max(0.5, Math.min(1.4, (w / 400) * 0.65));
     }
 
     update(deltaTime) {
@@ -234,20 +249,54 @@ export class BattleScene {
         const offsetLeft = -w * 0.5 * (1 - ease);
         const offsetRight = w * 0.5 * (1 - ease);
 
-        // Background
-        ctx.globalAlpha = ease;
-        ctx.fillStyle = '#222';
+        // Background Overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, h * 0.75, w, h * 0.25);
+
+        // Draw Grass
+        if (this.battleGrass && this.battleGrass.complete && this.battleGrass.naturalWidth > 0) {
+            const img = this.battleGrass;
+            const halfW = w / 2;
+
+            // Scale logic: Cover width, but ensure min height for mobile
+            // We want the grass to be at least 35% of screen height
+            const minH = h * 0.35;
+            const scale = Math.max(halfW / img.width, minH / img.height);
+
+            const drawW = halfW;
+            const drawH = img.height * scale;
+            const drawY = h - drawH;
+
+            // Source dimensions (crop outer edges if needed)
+            const sWidth = halfW / scale;
+            const sHeight = img.height;
+
+            // Left Side (Mirrored)
+            ctx.save();
+            ctx.translate(halfW + offsetLeft, 0); // Start at center
+            ctx.scale(-1, 1); // Mirror
+            // Draw from left side of image (seam)
+            ctx.drawImage(img, 0, 0, sWidth, sHeight, 0, drawY, drawW, drawH);
+            ctx.restore();
+
+            // Right Side (Normal)
+            ctx.save();
+            ctx.translate(halfW + offsetRight, 0); // Start at center
+            // Draw from left side of image (seam)
+            ctx.drawImage(img, 0, 0, sWidth, sHeight, 0, drawY, drawW, drawH);
+            ctx.restore();
+        }
+
         ctx.globalAlpha = 1.0;
 
         ctx.save();
         ctx.translate(this.shake.x, this.shake.y);
 
         // Units
-        this.renderUnit(ctx, this.leftUnit, this.leftPos.x + offsetLeft, this.leftPos.y, false);
-        this.renderUnit(ctx, this.rightUnit, this.rightPos.x + offsetRight, this.rightPos.y, true);
+        // Left Unit (Hero): Faces Right (Flip to face right if sprite faces left)
+        this.renderUnit(ctx, this.leftUnit, this.leftPos.x + offsetLeft, this.leftPos.y, true);
+        // Right Unit (Enemy): Faces Left (Assuming sprite faces Left, No Flip)
+        this.renderUnit(ctx, this.rightUnit, this.rightPos.x + offsetRight, this.rightPos.y, false);
 
         // Damage Number (Only in HIT phase)
         if (this.phase === 'hit') {
