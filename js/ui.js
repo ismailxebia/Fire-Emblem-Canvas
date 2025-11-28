@@ -104,7 +104,6 @@ export function updateProfileStatus(unit) {
 export function showTurnOverlay(text) {
   const overlay = document.getElementById('turnOverlay');
   if (!overlay) {
-    console.warn("Element #turnOverlay tidak ditemukan di DOM.");
     return;
   }
   const turnText = overlay.querySelector('.turnText');

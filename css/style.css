@@ -454,3 +454,94 @@ body {
 #confirmMenu button:not(:last-child) {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* --- Loading Screen --- */
+#loadingScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.95) 100%);
+    z-index: 3000;
+    display: flex;
+    align-items: flex-end;
+    /* Align to bottom */
+    justify-content: flex-start;
+    /* Align to left */
+    color: #fff;
+    font-family: "Trirong", serif;
+    /* Use Trirong font */
+    transition: opacity 0.5s ease-out;
+    padding-bottom: 64px;
+    /* Bottom margin */
+}
+
+.loadingContent {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-left: 32px;
+}
+
+.loadingIconContainer {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.loadingIcon {
+    width: 38px;
+    height: 38px;
+    animation: spin 3s linear infinite;
+    /* Ensure icon is white */
+    filter: brightness(0) invert(1);
+}
+
+.loadingPercent {
+    font-size: 16px;
+    color: #888;
+    font-family: "Trirong", serif;
+}
+
+.loadingTitle {
+    font-size: 20px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    /* Increased letter spacing for "Battlefield #1" look */
+    font-family: "Trirong", serif;
+}
+
+.loadingSubtitle {
+    font-size: 28px;
+    color: #fff;
+    font-weight: normal;
+    /* Trirong looks better normal or 400 here based on ref */
+    margin-bottom: -8px;
+    margin-top: -4px;
+    line-height: 1.2;
+    font-family: "Trirong", serif;
+}
+
+.loadingFooter {
+    font-size: 14px;
+    color: #D4AF37;
+    /* Gold color */
+    margin-top: 12px;
+    font-family: "Trirong", serif;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
