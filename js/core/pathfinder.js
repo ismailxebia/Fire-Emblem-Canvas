@@ -9,16 +9,16 @@ export class Pathfinder {
 
   static isValid(col, row, grid, obstacles, units, start, maxRange) {
     if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
-    
+
     // Check obstacles
     if (obstacles && obstacles.some(o => o.col === col && o.row === row)) return false;
-    
+
     // Check units (enemies or other heroes depending on context)
     if (units && units.some(u => u.col === col && u.row === row)) return false;
-    
+
     const rangeFromStart = Math.abs(col - start.col) + Math.abs(row - start.row);
     if (rangeFromStart > maxRange) return false;
-    
+
     return true;
   }
 
@@ -44,7 +44,7 @@ export class Pathfinder {
 
   static findPath(grid, start, goal, maxRange, obstacles = [], units = []) {
     const createNode = (col, row, g, h, parent) => ({ col, row, g, h, f: g + h, parent });
-    
+
     const startNode = createNode(start.col, start.row, 0, this.heuristic(start, goal), null);
     const openSet = [startNode];
     const closedSet = [];
@@ -75,6 +75,7 @@ export class Pathfinder {
         if (closedSet.find(n => n.col === neighbor.col && n.row === neighbor.row)) continue;
 
         const tentativeG = current.g + 1;
+        if (tentativeG > maxRange) continue;
         let neighborNode = openSet.find(n => n.col === neighbor.col && n.row === neighbor.row);
 
         if (!neighborNode) {

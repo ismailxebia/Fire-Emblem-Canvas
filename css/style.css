@@ -37,64 +37,80 @@ body {
 }
 
 /* --- Penyesuaian umum di status container --- */
+/* --- Penyesuaian umum di status container --- */
 #statusContainer {
     width: 100%;
-    background: #E8E5DA;
-    color: #fff;
-    padding: 12px;
+    background: #F2F0E6;
+    /* Cream/Beige background like FFBE */
+    color: #333;
+    padding: 8px 12px;
     position: relative;
     image-rendering: pixelated;
     z-index: 1000;
+    border-bottom: 4px solid #D6CDB6;
+    /* Depth border */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Layout profile status => portrait + infoContainer di samping */
+/* Layout profile status */
 #profileStatus {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
-    /* responsif untuk layar kecil */
+    max-width: 600px;
+    /* Limit width for cleaner look on desktop */
+    margin: 0 auto;
+    /* Center it */
 }
 
 /* --- Portrait + Level Tag --- */
 .portrait {
     position: relative;
     flex: 0 0 auto;
-    width: 100px;
-    height: 80px;
-    padding: 4px;
+    width: 68px;
+    /* Smaller, square */
+    height: 68px;
+    padding: 0;
     border-radius: 12px;
-    background: rgb(255, 255, 255);
+    background: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .portrait img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: 9px;
+    /* Match parent minus border */
     image-rendering: pixelated;
 }
 
-/* Level Tag di pojok atas kiri portrait */
+/* Level Tag */
 .levelTag {
     position: absolute;
-    top: 0;
-    left: 0;
-    background: rgba(0, 0, 0, 0.7);
+    top: -4px;
+    left: -4px;
+    background: #2C2C2C;
     color: #fff;
-    padding: 3px 8px;
-    font-size: 0.9em;
-    border-top-left-radius: 4px;
-    border-bottom-right-radius: 12px;
+    padding: 2px 6px;
+    font-size: 0.8em;
+    font-weight: bold;
+    border-radius: 6px 0 6px 0;
+    border: 2px solid #fff;
+    z-index: 2;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* --- Info Container: Hero Name, Stars, HP Bar, Attributes --- */
+/* --- Info Container --- */
 .infoContainer {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
+    /* Tighter gap */
     flex: 1;
+    justify-content: center;
 }
 
 /* Nama + Star Rating */
@@ -102,41 +118,44 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    margin-bottom: 2px;
 }
 
-/* Efek outline teks sederhana */
+/* Efek outline teks */
 .textStroke {
-    color: #ffffff;
+    color: #222;
     text-shadow:
-        -1.6px -1.6px 0 #FFF,
-        1.6px -1.6px 0 #FFF,
-        -1.6px 1.6px 0 #FFF,
-        1.6px 1.6px 0 #FFF;
+        -2px -2px 0 #FFF,
+        2px -2px 0 #FFF,
+        -2px 2px 0 #FFF,
+        2px 2px 0 #FFF;
 }
 
 /* Nama hero */
 .heroName {
-    font-size: 1.2em;
+    font-size: 1.4em;
     color: #000;
-    font-weight: bold;
+    font-weight: 900;
+    letter-spacing: 0.5px;
 }
 
 /* Bintang */
 .stars {
     display: flex;
     flex-direction: row;
-    gap: 4px;
+    gap: 2px;
 }
 
 .star {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     image-rendering: pixelated;
 }
 
 .star.off {
-    opacity: 0.3;
+    opacity: 0.2;
+    filter: grayscale(100%);
 }
 
 /* HP Bar Container */
@@ -144,72 +163,84 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 4px;
 }
 
 /* HP Label */
 .hpLabel {
-    font-weight: bold;
-    color: #000;
+    font-weight: 900;
+    color: #222;
     font-size: 1em;
+    text-shadow: 1px 1px 0 #fff;
 }
 
 /* HP Bar */
 .hpBar {
     position: relative;
     flex: 1;
-    height: 8px;
-    background-color: #e0ded2;
-    clip-path: polygon(0px 0px,
-            calc(100% - 20px) 0px,
-            100% 0px,
-            100% calc(100% - 10px),
-            calc(100% - 10px) 100%,
-            0px 100%);
+    height: 14px;
+    background-color: #DCD9CD;
+    border-radius: 4px;
+    border: 2px solid #fff;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    clip-path: none;
+    /* Removed polygon for cleaner rounded look */
 }
 
 /* HP Fill */
 .hpFill {
     position: relative;
     width: 70%;
-    /* nilai default, akan diperbarui melalui JS */
     height: 100%;
-    background: linear-gradient(to right, #B12D1E, #F48C06);
-    clip-path: inherit;
+    background: linear-gradient(90deg, #D35400, #F39C12);
+    /* Orange gradient */
+    border-radius: 2px;
 }
 
 .hpFill::after {
     content: "";
     position: absolute;
-    top: -1px;
-    left: -10px;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    background: url('https://ik.imagekit.io/ij05ikv7z/Hero/PatternLine.png') repeat;
+    /* Diagonal stripes pattern */
+    background: repeating-linear-gradient(45deg,
+            rgba(255, 255, 255, 0.15),
+            rgba(255, 255, 255, 0.15) 4px,
+            transparent 4px,
+            transparent 8px);
     pointer-events: none;
 }
 
 /* HP Value */
 .hpValue {
     font-weight: bold;
-    font-size: 1em;
-    color: #000;
+    font-size: 1.1em;
+    color: #222;
+    text-shadow: 1px 1px 0 #fff;
 }
 
 /* Attributes (ATK, DEF, SPD, RES) */
 .attributes {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    gap: 2px;
+    gap: 6px;
 }
 
 .attributes .stat {
-    width: 100%;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.1);
-    font-size: 0.9em;
-    color: #5A5851;
-    border-radius: 8px;
+    padding: 3px 10px;
+    background: #E6E4D9;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: #555;
+    border-radius: 10px;
+    border: 1px solid #D6D3C5;
+    box-shadow: 0 1px 0 #fff;
+    min-width: 60px;
+    text-align: center;
 }
 
 /* Turn Overlay - Advanced Animation */

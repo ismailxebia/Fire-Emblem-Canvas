@@ -113,7 +113,28 @@ export class ActionSystem {
             originalPosition: { col: this.selectedHero.col, row: this.selectedHero.row },
             newPosition: null
         };
-        this.hideAllMenus();
+
+        // Show Cancel button immediately so user can cancel move selection
+        this.showCancelOnlyMenu();
+    }
+
+    showCancelOnlyMenu() {
+        const menu = document.getElementById('confirmMenu');
+        if (menu) {
+            menu.style.display = 'flex'; // Use flex as per CSS
+            // Hide others
+            const btnAttack = document.getElementById('btnAttackConfirm');
+            if (btnAttack) btnAttack.style.display = 'none';
+            const btnMagic = document.getElementById('btnMagicConfirm');
+            if (btnMagic) btnMagic.style.display = 'none';
+            const btnConfirm = document.getElementById('btnConfirm');
+            if (btnConfirm) btnConfirm.style.display = 'none';
+
+            // Show Cancel
+            const btnCancel = document.getElementById('btnCancel');
+            if (btnCancel) btnCancel.style.display = 'block';
+        }
+        this.hideActionMenu();
     }
 
     handleMoveSelection(col, row) {
@@ -147,8 +168,8 @@ export class ActionSystem {
 
         // Validate path (using Pathfinder)
         const path = this.game.battle.findPath(this.game.grid, origin, { col, row }, hero.movementRange);
-        if (path.length === 0) {
-            return; // No valid path
+        if (path.length === 0 || (path.length - 1) > hero.movementRange) {
+            return; // No valid path or path too long
         }
 
         // Valid move!

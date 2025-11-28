@@ -74,20 +74,36 @@ export default class Battle {
     });
     // Update overlay progress: naik jika mode move aktif, turun jika tidak.
     if (this.actionMode === 'move') {
-      this.hexOverlayProgress = Math.min(this.hexOverlayProgress + deltaTime / 500, 1);
+      this.hexOverlayProgress = Math.min(this.hexOverlayProgress + deltaTime / 300, 1);
     } else {
-      this.hexOverlayProgress = Math.max(this.hexOverlayProgress - deltaTime / 500, 0);
+      this.hexOverlayProgress = Math.max(this.hexOverlayProgress - deltaTime / 300, 0);
     }
   }
 
   render(ctx, camera) {
-    // --- Render Move Range Overlay (jika actionMode 'move') ---
+    // --- Render Move Range Overlay ---
+    // Capture data for fade out
+    let moveOverlayData = null;
     if (this.actionMode === 'move' && this.pendingMove) {
-      const origin = this.pendingMove.originalPosition;
-      const range = this.pendingMove.hero.movementRange;
-      const delayFactor = 0.2;
-      const activationDuration = 0.3;
-      const easedGlobalProgress = easeInOutQuad(this.hexOverlayProgress);
+      moveOverlayData = {
+        origin: this.pendingMove.originalPosition,
+        range: this.pendingMove.hero.movementRange,
+        hero: this.pendingMove.hero
+      };
+      this.lastMoveData = moveOverlayData;
+    } else if (this.hexOverlayProgress > 0 && this.lastMoveData) {
+      moveOverlayData = this.lastMoveData;
+    }
+
+    if (moveOverlayData) {
+      const { origin, range, hero } = moveOverlayData;
+      const delayFactor = 0.15; // Tighter wave
+      const activationDuration = 0.4;
+
+      // Calculate max delay to normalize progress
+      const maxDelay = range * delayFactor;
+      // Map 0-1 progress to 0-(1+maxDelay) so all cells finish
+      const easedGlobalProgress = easeInOutQuad(this.hexOverlayProgress) * (1 + maxDelay);
 
       for (let c = origin.col - range; c <= origin.col + range; c++) {
         for (let r = origin.row - range; r <= origin.row + range; r++) {
@@ -98,46 +114,56 @@ export default class Battle {
             ctx.save();
             const cellDelay = distance * delayFactor;
             const cellProgress = Math.min(Math.max((easedGlobalProgress - cellDelay) / activationDuration, 0), 1);
-            const finalProgress = cellProgress === 1 ? 1 : cellProgress;
 
-            // Cek occupant: bisa hero lain atau enemy
-            const occupyingUnit = this.heroes.find(h => h !== this.pendingMove.hero && h.col === c && h.row === r) ||
-              this.enemies.find(e => e.col === c && e.row === r);
+            if (cellProgress > 0) {
+              const finalProgress = cellProgress;
 
-            // Tentukan warna overlay berdasarkan validitas cell (menggunakan pathfinding)
-            const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
-            let baseAlpha, baseColor;
-            if (cellPath.length === 0 || (cellPath.length - 1) > range) {
-              baseAlpha = 0.3;
-              baseColor = '255,0,0'; // Merah untuk tidak dapat dijangkau
-            } else {
-              baseAlpha = occupyingUnit ? 0.15 : 0.3;
-              baseColor = '0,0,255'; // Biru untuk dapat dijangkau
-            }
-            const finalAlpha = finalProgress * baseAlpha;
-            ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
-            ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+              // Cek occupant: bisa hero lain atau enemy
+              const occupyingUnit = this.heroes.find(h => h !== hero && h.col === c && h.row === r) ||
+                this.enemies.find(e => e.col === c && e.row === r);
 
-            // [Tambahan Pattern] Jika cell ditempati enemy, timpa dengan pattern diagonal
-            const occupyingEnemy = this.enemies.find(e => e.col === c && e.row === r && e.health > 0);
-            if (occupyingEnemy && this.game && this.game.diagonalPattern) {
-              ctx.save();
-              ctx.fillStyle = this.game.diagonalPattern;
-              ctx.globalAlpha = 0.5; // Atur transparansi pattern
-              ctx.fillRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
-              ctx.restore();
-            }
+              // Tentukan warna overlay berdasarkan validitas cell (menggunakan pathfinding)
+              const cellPath = this.findPath(this.grid, origin, { col: c, row: r }, range);
+              let baseAlpha, baseColor;
+              if (cellPath.length === 0 || (cellPath.length - 1) > range) {
+                baseAlpha = 0.3;
+                baseColor = '255,0,0'; // Merah untuk tidak dapat dijangkau
+              } else {
+                baseAlpha = occupyingUnit ? 0.15 : 0.3;
+                baseColor = '0,0,255'; // Biru untuk dapat dijangkau
+              }
+              const finalAlpha = finalProgress * baseAlpha;
 
-            if (!occupyingUnit && cellProgress === 1) {
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+              // Scale Animation: 70% -> 100%
+              const scale = 0.7 + (0.3 * finalProgress);
+              const size = this.grid.tileSize * scale;
+              const offset = (this.grid.tileSize - size) / 2;
+
+              ctx.fillStyle = `rgba(${baseColor}, ${finalAlpha})`;
+              ctx.fillRect(cellPos.x - camera.x + offset, cellPos.y - camera.y + offset, size, size);
+
+              // [Tambahan Pattern] Jika cell ditempati enemy, timpa dengan pattern diagonal
+              const occupyingEnemy = this.enemies.find(e => e.col === c && e.row === r && e.health > 0);
+              if (occupyingEnemy && this.game && this.game.diagonalPattern) {
+                ctx.save();
+                ctx.fillStyle = this.game.diagonalPattern;
+                ctx.globalAlpha = 0.5 * finalProgress; // Fade pattern too
+                ctx.fillRect(cellPos.x - camera.x + offset, cellPos.y - camera.y + offset, size, size);
+                ctx.restore();
+              }
+
+              if (!occupyingUnit && cellProgress === 1) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cellPos.x - camera.x, cellPos.y - camera.y, this.grid.tileSize, this.grid.tileSize);
+              }
             }
             ctx.restore();
           }
         }
       }
 
+      // Path Indicator only when active
       if (this.actionMode === 'move' && this.pendingMove?.newPosition) {
         const path = this.findPath(this.grid,
           this.pendingMove.originalPosition,
