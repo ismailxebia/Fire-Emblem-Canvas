@@ -123,7 +123,7 @@ export default class Game {
     // Show battle intro first
     showTurnOverlay(this.stageData.battleName || 'BATTLE START');
 
-    // Then show Turn 1 after intro fades
+    // Then show Turn 1 after intro completely fades (2000ms + 500ms fade + buffer)
     setTimeout(() => {
       showTurnOverlay(`TURN ${this.turnNumber}`);
       setTimeout(() => {
@@ -131,7 +131,7 @@ export default class Game {
         window.gameOverlayActive = false;
         this.actionSystem.reset();
       }, 3000);
-    }, 2500);
+    }, 3000);
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
