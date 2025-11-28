@@ -164,13 +164,18 @@ export default class Battle {
     });
 
     // --- Render Indikator Seleksi Hero ---
-    if (
-      this.selectedHero &&
-      this.game.currentTurn === 'hero' &&      // <-- cek giliran di sini
-      typeof this.selectedHero.col === 'number' &&
-      typeof this.selectedHero.row === 'number'
-    ) {
-      const pos = this.grid.getCellPosition(this.selectedHero.col, this.selectedHero.row);
+    // --- Render Indikator Seleksi Hero ---
+    if (this.selectedHero && this.game.turnPhase === 'hero') {
+      // If moving, show indicator at ORIGINAL position to indicate start point
+      let targetCol = this.selectedHero.col;
+      let targetRow = this.selectedHero.row;
+
+      if (this.actionMode === 'move' && this.pendingMove) {
+        targetCol = this.pendingMove.originalPosition.col;
+        targetRow = this.pendingMove.originalPosition.row;
+      }
+
+      const pos = this.grid.getCellPosition(targetCol, targetRow);
       ctx.save();
       ctx.drawImage(
         this.indicatorImage,

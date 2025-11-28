@@ -70,6 +70,10 @@ export class BattleScene {
         this.leftUnit = isHeroAttacker ? attacker : defender;
         this.rightUnit = isHeroAttacker ? defender : attacker;
 
+        // Visual HP (clones to animate) - MUST use leftUnit/rightUnit!
+        this.leftHP = this.leftUnit.health;
+        this.rightHP = this.rightUnit.health;
+
         this.updateLayout();
     }
 
@@ -153,9 +157,11 @@ export class BattleScene {
                         (turn.receiver === this.rightUnit && this.rightHP <= 0);
 
                     if (receiverDead) {
-                        console.log(`Battle: Receiver ${turn.receiver.name} died. Transitioning to outro.`);
-                        this.phase = 'outro'; // End battle if someone dies
+                        console.log(`Battle: Receiver ${turn.receiver.name} died. Starting death animation.`);
+                        this.phase = 'death';
                         this.timer = 0;
+                        this.dyingUnit = turn.receiver;
+                        this.deathProgress = 0; // 0 to 1
                     } else {
                         console.log(`Battle: Turn ${this.currentTurnIndex + 1} completed. Moving to next turn or outro.`);
                         this.currentTurnIndex++;
@@ -167,6 +173,15 @@ export class BattleScene {
                             this.timer = 0;
                         }
                     }
+                }
+                break;
+
+            case 'death':
+                // Death animation: white flash + fade out
+                this.deathProgress = Math.min(this.deathProgress + deltaTime / 800, 1);
+                if (this.timer > 1200) {
+                    this.phase = 'outro';
+                    this.timer = 0;
                 }
                 break;
 
@@ -266,11 +281,15 @@ export class BattleScene {
     renderUnit(ctx, unit, x, y, flip) {
         if (!unit.image || !unit.image.complete) return;
 
+        // Don't render unit that died (prevent flash after death animation)
+        if (this.dyingUnit === unit && this.phase === 'outro') {
+            return;
+        }
+
         const FRAME_WIDTH = 256;
         const FRAME_HEIGHT = 240;
 
         // Determine row: 1 if attacking, 0 if idle
-        // Check if this unit is the current attacker AND we are in attack phase
         let row = 0;
         if (this.turns && this.turns[this.currentTurnIndex]) {
             const turn = this.turns[this.currentTurnIndex];
@@ -285,6 +304,17 @@ export class BattleScene {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(flip ? -this.scale : this.scale, this.scale);
+
+        // Death Effect: White flash + Fade out
+        if (this.phase === 'death' && unit === this.dyingUnit) {
+            // White flash: increase brightness
+            const flashIntensity = this.deathProgress < 0.3 ? (this.deathProgress / 0.3) : (1 - (this.deathProgress - 0.3) / 0.7);
+            ctx.filter = `brightness(${1 + flashIntensity * 1.5}) contrast(${1 + flashIntensity * 0.5})`;
+
+            // Fade out
+            ctx.globalAlpha = 1 - this.deathProgress;
+        }
+
         ctx.drawImage(unit.image, sx, sy, FRAME_WIDTH, FRAME_HEIGHT, -FRAME_WIDTH / 2, -FRAME_HEIGHT + 20, FRAME_WIDTH, FRAME_HEIGHT);
         ctx.restore();
     }
@@ -306,7 +336,7 @@ export class BattleScene {
     renderHPBar(ctx, unit, currentHP, x, y, width, height, alignRight) {
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(x, y, width, height);
-        // Font sizes
+
         const nameSize = Math.max(16, width * 0.1);
         const hpSize = Math.max(14, width * 0.08);
 
@@ -320,20 +350,40 @@ export class BattleScene {
         const barH = height * 0.2;
         const barW = width - 20;
         const barX = x + 10;
-        const barY = y + height - barH - 10; // Bottom aligned inside box
+        const barY = y + height - barH - 10;
 
+        // Background
         ctx.fillStyle = '#555';
         ctx.fillRect(barX, barY, barW, barH);
 
-        const pct = Math.max(0, unit.health / 100); // Assuming max 100 for now or use unit.maxHealth
-        ctx.fillStyle = '#d4af37'; // Gold/Yellow
+        // Calculate HP percentage
+        const maxHP = unit.maxHealth || 100;
+        const pct = Math.max(0, Math.min(1, currentHP / maxHP));
+
+        // Create gradient based on HP percentage (like HUD)
+        const gradient = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+
+        if (pct > 0.6) {
+            // High HP: Green to Yellow
+            gradient.addColorStop(0, '#4ade80'); // Green
+            gradient.addColorStop(1, '#fbbf24'); // Yellow
+        } else if (pct > 0.3) {
+            // Medium HP: Yellow to Orange
+            gradient.addColorStop(0, '#fbbf24'); // Yellow
+            gradient.addColorStop(1, '#fb923c'); // Orange
+        } else {
+            // Low HP: Orange to Red
+            gradient.addColorStop(0, '#fb923c'); // Orange
+            gradient.addColorStop(1, '#ef4444'); // Red
+        }
+
+        ctx.fillStyle = gradient;
         ctx.fillRect(barX, barY, barW * pct, barH);
 
-        // HP Text
+        // HP Text (show as "current / max")
         ctx.fillStyle = '#fff';
         ctx.font = `${hpSize}px "Jersey 20"`;
-        // Position HP text above bar or inside? Above is better
-        ctx.fillText(`${unit.health}`, alignRight ? x + width - 10 : x + 10, barY - 5);
+        ctx.fillText(`${Math.floor(currentHP)} / ${maxHP}`, alignRight ? x + width - 10 : x + 10, barY - 5);
     }
 
     end() {

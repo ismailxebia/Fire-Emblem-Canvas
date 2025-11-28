@@ -119,12 +119,19 @@ export default class Game {
     this.turnPhase = 'start';
     this.turnNumber = 1;
     window.gameOverlayActive = true;
-    showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
+
+    // Show battle intro first
+    showTurnOverlay(this.stageData.battleName || 'BATTLE START');
+
+    // Then show Turn 1 after intro fades
     setTimeout(() => {
-      this.turnPhase = 'hero';
-      window.gameOverlayActive = false;
-      this.actionSystem.reset();
-    }, 3000);
+      showTurnOverlay(`TURN ${this.turnNumber}`);
+      setTimeout(() => {
+        this.turnPhase = 'hero';
+        window.gameOverlayActive = false;
+        this.actionSystem.reset();
+      }, 3000);
+    }, 2500);
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
@@ -193,7 +200,7 @@ export default class Game {
       this.battle.heroes.forEach(hero => hero.actionTaken = false);
       this.battle.enemies.forEach(enemy => enemy.actionTaken = false);
       window.gameOverlayActive = true;
-      showTurnOverlay(`${this.stageData.battleName}\nTURN ${this.turnNumber}`);
+      showTurnOverlay(`TURN ${this.turnNumber}`);
       setTimeout(() => {
         this.turnPhase = 'hero';
         window.gameOverlayActive = false;
@@ -222,10 +229,39 @@ export default class Game {
         enemy.actionTaken = true;
         enemy.showHexRange = false;
         enemy.selected = false;
-        setTimeout(() => {
-          this.currentEnemyIndex++;
-          this.processNextEnemy();
-        }, 1000);
+
+        // Check for attack opportunity
+        let target = null;
+        const attackRange = enemy.attackRange || 1;
+
+        // Simple targeting: Find first hero in range
+        for (const hero of this.battle.heroes) {
+          if (hero.health > 0) {
+            const dist = Math.abs(enemy.col - hero.col) + Math.abs(enemy.row - hero.row);
+            if (dist <= attackRange) {
+              target = hero;
+              break;
+            }
+          }
+        }
+
+        if (target) {
+          // Wait for move animation to finish (approx 500ms-1s depending on distance, but startMove is visual)
+          // startMove updates logical pos immediately but visual takes time.
+          // Let's give it a small buffer or rely on the existing 1000ms timeout logic but nested.
+
+          setTimeout(() => {
+            this.actionSystem.executeEnemyAttack(enemy, target, () => {
+              this.currentEnemyIndex++;
+              this.processNextEnemy();
+            });
+          }, 800); // Wait for move to settle
+        } else {
+          setTimeout(() => {
+            this.currentEnemyIndex++;
+            this.processNextEnemy();
+          }, 1000);
+        }
       }, 1000);
     }, 1000);
   }
@@ -252,6 +288,10 @@ export default class Game {
           this.turnPhase = 'enemy';
           this.actionSystem.state = ActionState.ENEMY_TURN;
           window.gameOverlayActive = true;
+          showTurnOverlay('ENEMY TURN');
+          setTimeout(() => {
+            window.gameOverlayActive = false;
+          }, 2500);
         }, 1000);
       }
     } else if (this.turnPhase === 'enemy') {

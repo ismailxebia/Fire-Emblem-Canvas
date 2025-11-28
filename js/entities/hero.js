@@ -57,7 +57,9 @@ export class Hero extends Unit {
     // Properti tambahan dari JSON
     this.level = level;
     this.star = star;
+    this.rarity = star; // For UI compatibility
     this.spd = spd;
+    this.speed = spd; // Alias for consistency
     this.def = def;
     this.res = res;
 

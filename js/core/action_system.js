@@ -231,8 +231,98 @@ export class ActionSystem {
                 console.log(`${target.name} counters ${hero.name} for ${counterDamage} damage!`);
             }
 
+            // Update HUD
+            updateProfileStatus(hero);
+            updateProfileStatus(target);
+
+            // Remove dead units from battlefield
+            if (target.health <= 0) {
+                console.log(`${target.name} has been defeated!`);
+                // Remove from enemies array
+                const index = this.game.battle.enemies.indexOf(target);
+                if (index > -1) {
+                    this.game.battle.enemies.splice(index, 1);
+                }
+            }
+
+            if (hero.health <= 0) {
+                console.log(`${hero.name} has been defeated!`);
+                // Remove from heroes array
+                const index = this.game.battle.heroes.indexOf(hero);
+                if (index > -1) {
+                    this.game.battle.heroes.splice(index, 1);
+                }
+            }
+
             // Mark action taken
             this.finalizeAction();
+        });
+    }
+
+    executeEnemyAttack(attacker, defender, onComplete) {
+        // 1. Calculate Damage (Enemy -> Hero)
+        // Assume physical for now
+        const damage = Math.max(0, attacker.attack - defender.def);
+
+        // 2. Calculate Counter Damage (Hero -> Enemy)
+        let counterDamage = null;
+        const dist = Math.abs(attacker.col - defender.col) + Math.abs(attacker.row - defender.row);
+
+        // Hero can counter if in range
+        // Hero usually has range 1 unless bow/magic. Let's check hero's attackRange
+        const range = defender.attackRange || 1;
+        if (dist <= range) {
+            // Hero counter
+            // Check if hero uses magic or physical? For now assume physical unless we check class/weapon
+            counterDamage = Math.max(0, defender.attack - attacker.def);
+        }
+
+        // 3. Trigger Battle Scene
+        // Note: attacker is Enemy (Right side usually in my code? No, I set logic: Attacker Left, Defender Right)
+        // In BattleScene.start: 
+        // "const isHeroAttacker = attacker.constructor.name === 'Hero';"
+        // If attacker is Enemy, isHeroAttacker is false.
+        // leftUnit = defender (Hero), rightUnit = attacker (Enemy).
+        // So Hero is Left, Enemy is Right.
+        // Turn 1: Attacker (Enemy/Right) -> Receiver (Hero/Left).
+        // Turn 2: Defender (Hero/Left) -> Receiver (Enemy/Right).
+        // This logic in BattleScene seems robust enough.
+
+        this.hideAllMenus(); // Just in case
+        this.game.battleScene.start(attacker, defender, damage, counterDamage, () => {
+            // Apply damage
+            defender.health = Math.max(0, defender.health - damage);
+            console.log(`${attacker.name} attacks ${defender.name} for ${damage} damage!`);
+
+            if (counterDamage !== null && defender.health > 0) {
+                attacker.health = Math.max(0, attacker.health - counterDamage);
+                console.log(`${defender.name} counters ${attacker.name} for ${counterDamage} damage!`);
+            }
+
+            // Update HUD
+            updateProfileStatus(attacker);
+            updateProfileStatus(defender);
+
+            // Remove dead units from battlefield
+            if (defender.health <= 0) {
+                console.log(`${defender.name} has been defeated!`);
+                // Remove from heroes array (defender is usually hero in enemy attack)
+                const index = this.game.battle.heroes.indexOf(defender);
+                if (index > -1) {
+                    this.game.battle.heroes.splice(index, 1);
+                }
+            }
+
+            if (attacker.health <= 0) {
+                console.log(`${attacker.name} has been defeated!`);
+                // Remove from enemies array (attacker is enemy in enemy attack)
+                const index = this.game.battle.enemies.indexOf(attacker);
+                if (index > -1) {
+                    this.game.battle.enemies.splice(index, 1);
+                }
+            }
+
+            if (onComplete) onComplete();
         });
     }
 

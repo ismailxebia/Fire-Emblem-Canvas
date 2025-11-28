@@ -52,44 +52,53 @@ export function setupActionMenu(game) {
 }
 
 export function updateProfileStatus(unit) {
-  const portraitImg = document.getElementById('heroPortrait');
-  const levelTagElem = document.querySelector('.portrait .levelTag');
-  const heroNameElem = document.querySelector('.heroName');
-  const starsContainer = document.querySelector('.stars');
-  const hpFillElem = document.querySelector('.hpFill');
-  const hpValueElem = document.querySelector('.hpValue');
-  const attributesContainer = document.querySelector('.attributes');
-
   if (!unit) return;
 
-  portraitImg.src = unit.portraitUrl || unit.spriteUrl || 'https://via.placeholder.com/80';
-  levelTagElem.textContent = `LV ${unit.level || 1}`;
-  heroNameElem.textContent = unit.name || 'Unknown';
+  const portrait = document.getElementById('heroPortrait');
+  const nameEl = document.querySelector('.heroName');
+  const starsEl = document.querySelector('.stars');
+  const hpFill = document.querySelector('.hpFill');
+  const hpValue = document.querySelector('.hpValue');
+  const stats = document.querySelectorAll('.stat');
 
-  let starHTML = '';
-  const maxStars = 3;
-  const activeStars = unit.star || 1;
-  for (let i = 0; i < maxStars; i++) {
-    if (i < activeStars) {
-      starHTML += '<img src="assets/star-on.svg" alt="Star On" class="star on">';
-    } else {
-      starHTML += '<img src="assets/star-off.svg" alt="Star Off" class="star off">';
-    }
+  // Update Portrait
+  if (unit.portraitUrl) {
+    portrait.src = unit.portraitUrl;
+  } else {
+    portrait.src = '';
   }
-  starsContainer.innerHTML = starHTML;
 
-  const currentHP = unit.health;
-  const maxHP = unit.maxHealth || unit.health;
+  // Update Name
+  nameEl.textContent = unit.name;
+
+  // Update Stars (Rarity)
+  starsEl.innerHTML = '';
+  const rarity = unit.rarity || 3;
+  for (let i = 0; i < 5; i++) {
+    const star = document.createElement('img');
+    star.classList.add('star');
+    star.src = 'assets/Star.png';
+    if (i >= rarity) {
+      star.classList.add('off');
+    }
+    starsEl.appendChild(star);
+  }
+
+  // Update HP
+  const maxHP = unit.maxHealth || 100;
+  const currentHP = Math.max(0, unit.health);
   const hpPercent = (currentHP / maxHP) * 100;
-  hpFillElem.style.width = `${hpPercent}%`;
-  hpValueElem.textContent = `${currentHP} / ${maxHP}`;
 
-  attributesContainer.innerHTML = `
-    <span class="stat">ATK : ${unit.attack || 0}</span>
-    <span class="stat">DEF : ${unit.def || 0}</span>
-    <span class="stat">SPD : ${unit.spd || 0}</span>
-    <span class="stat">RES : ${unit.res || 0}</span>
-  `;
+  hpFill.style.width = `${hpPercent}%`;
+  hpValue.textContent = `${currentHP} / ${maxHP}`;
+
+  // Update Stats
+  if (stats.length >= 4) {
+    stats[0].textContent = `ATK : ${unit.attack || 0}`;
+    stats[1].textContent = `DEF : ${unit.def || 0}`;
+    stats[2].textContent = `SPD : ${unit.speed || 0}`;
+    stats[3].textContent = `RES : ${unit.res || 0}`;
+  }
 }
 
 export function showTurnOverlay(text) {
@@ -98,32 +107,33 @@ export function showTurnOverlay(text) {
     console.warn("Element #turnOverlay tidak ditemukan di DOM.");
     return;
   }
-  const content = overlay.querySelector('.overlayContent');
-  if (!content) {
-    console.warn("Elemen .overlayContent tidak ditemukan di dalam #turnOverlay.");
+  const turnText = overlay.querySelector('.turnText');
+  if (!turnText) {
+    console.warn("Element .turnText tidak ditemukan di DOM.");
     return;
   }
 
-  content.innerHTML = text.replace(/\n/g, '<br>');
+  // Set text
+  turnText.textContent = text;
 
-  content.style.opacity = '0';
-  content.style.transform = 'translateY(-20px)';
-  overlay.style.display = 'flex';
-  void content.offsetWidth;
+  // Reset state
+  overlay.classList.remove('fadeOut');
+  overlay.style.display = 'block';
 
-  content.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
-  content.style.opacity = '1';
-  content.style.transform = 'translateY(0)';
+  // Trigger enter animation
+  requestAnimationFrame(() => {
+    overlay.classList.add('active');
+  });
 
-  window.gameOverlayActive = true;
-
+  // Start fade out after 2 seconds
   setTimeout(() => {
-    content.style.opacity = '0';
-    content.style.transform = 'translateY(-20px)';
+    overlay.classList.remove('active');
+    overlay.classList.add('fadeOut');
+
+    // Hide completely after fade out
     setTimeout(() => {
       overlay.style.display = 'none';
-      window.gameOverlayActive = false;
-      content.style.transition = '';
-    }, 800);
-  }, 3000);
+      overlay.classList.remove('fadeOut');
+    }, 500);
+  }, 2000);
 }
