@@ -236,4 +236,69 @@ body {
     transform: translateY(-20px);
     transition: opacity 0.8s ease, transform 0.8s ease;
   }
+
+/* --- Brigandine Style Action Menus --- */
+
+#actionMenu, #confirmMenu {
+    /* Override inline styles */
+    background: linear-gradient(180deg, #3d3d3d 0%, #2b2b2b 100%) !important;
+    border: 2px solid #c4a05f !important;
+    border-radius: 8px !important;
+    padding: 8px 0 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.5) !important;
+    min-width: 140px;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Decorative corner accents (optional, simulated with box-shadow or border-image) */
+#actionMenu::before, #confirmMenu::before {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px; right: 2px; bottom: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+    border-radius: 6px;
+}
+
+#actionMenu button, #confirmMenu button {
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-family: "Jersey 20", serif;
+    font-size: 1.2rem;
+    text-align: left;
+    padding: 8px 16px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 0 #000;
+}
+
+#actionMenu button:hover, #confirmMenu button:hover {
+    color: #fff;
+    background: linear-gradient(90deg, rgba(196, 160, 95, 0.2) 0%, rgba(196, 160, 95, 0) 100%);
+    padding-left: 20px; /* Slide effect */
+    text-shadow: 0 0 8px rgba(196, 160, 95, 0.8);
+}
+
+/* Active/Selected indicator (simulated) */
+#actionMenu button:hover::before, #confirmMenu button:hover::before {
+    content: '►';
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #c4a05f;
+    font-size: 0.8rem;
+}
+
+/* Separator lines if needed, or just spacing */
+#actionMenu button:not(:last-child), #confirmMenu button:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
   

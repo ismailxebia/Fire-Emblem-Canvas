@@ -1,121 +1,18 @@
 // js/battle.js
 
-import { Hero } from './entities/hero.js';
-import { Enemy } from './entities/enemy.js';
+import { Pathfinder } from './core/pathfinder.js';
 import { PathIndicator } from './utils/pathIndicator.js';
 
 function easeInOutQuad(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
-function smoothStep(edge0, edge1, x) {
-  let t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-/**
- * Fungsi A* sederhana untuk pathfinding dengan dukungan obstacle dan batas range.
- */
-function findPath(grid, start, goal, maxRange, enemyUnits = []) {
-  function createNode(col, row, g, h, f, parent) {
-    return { col, row, g, h, f, parent };
-  }
-  function heuristic(a, b) {
-    return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
-  }
-  function isValid(col, row) {
-    if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
-    if (grid.obstacles && grid.obstacles.some(o => o.col === col && o.row === row)) return false;
-    if (enemyUnits && enemyUnits.some(e => e.col === col && e.row === row)) return false;
-    const rangeFromStart = Math.abs(col - start.col) + Math.abs(row - start.row);
-    if (rangeFromStart > maxRange) return false;
-    return true;
-  }
-  function getNeighbors(node) {
-    const neighbors = [];
-    const directions = [
-      { dc: 0, dr: -1 },
-      { dc: 0, dr: 1 },
-      { dc: -1, dr: 0 },
-      { dc: 1, dr: 0 }
-    ];
-    directions.forEach(d => {
-      const newCol = node.col + d.dc;
-      const newRow = node.row + d.dr;
-      if (isValid(newCol, newRow)) {
-        neighbors.push({ col: newCol, row: newRow });
-      }
-    });
-    return neighbors;
-  }
-
-  const openSet = [];
-  const closedSet = [];
-  const startNode = createNode(start.col, start.row, 0, heuristic(start, goal), heuristic(start, goal), null);
-  openSet.push(startNode);
-
-  while (openSet.length > 0) {
-    let currentIndex = 0;
-    for (let i = 1; i < openSet.length; i++) {
-      if (openSet[i].f < openSet[currentIndex].f) {
-        currentIndex = i;
-      }
-    }
-    const current = openSet.splice(currentIndex, 1)[0];
-    closedSet.push(current);
-
-    if (current.col === goal.col && current.row === goal.row) {
-      const path = [];
-      let temp = current;
-      while (temp !== null) {
-        path.push({ col: temp.col, row: temp.row });
-        temp = temp.parent;
-      }
-      return path.reverse();
-    }
-
-    const neighbors = getNeighbors(current);
-    for (const neighbor of neighbors) {
-      if (closedSet.find(n => n.col === neighbor.col && n.row === neighbor.row)) continue;
-      const tentativeG = current.g + 1;
-      let neighborNode = openSet.find(n => n.col === neighbor.col && n.row === neighbor.row);
-      if (!neighborNode) {
-        neighborNode = createNode(
-          neighbor.col,
-          neighbor.row,
-          tentativeG,
-          heuristic(neighbor, goal),
-          tentativeG + heuristic(neighbor, goal),
-          current
-        );
-        openSet.push(neighborNode);
-      } else if (tentativeG < neighborNode.g) {
-        neighborNode.g = tentativeG;
-        neighborNode.f = tentativeG + neighborNode.h;
-        neighborNode.parent = current;
-      }
-    }
-  }
-  return [];
-}
-
 export default class Battle {
   constructor(grid) {
     this.grid = grid;
     this.game = null;
-    this.heroes = [
-      new Hero('HeroA', 2, 2, 100, 20, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20C%20(1).png', 3),
-      new Hero('HeroB', 3, 2, 90, 18, 2, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20B%20(1).png', 3),
-      new Hero('HeroC', 2, 3, 80, 25, 1, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20A.png'),
-      new Hero('HeroD', 3, 3, 70, 15, 3, 'https://ik.imagekit.io/ij05ikv7z/Hero/Hero%20D.png')
-    ];
-    // Inisialisasi enemies
-    this.enemies = [
-      new Enemy('Enemy1', 0, 8, 50, 15),
-      new Enemy('Enemy2', 1, 8, 60, 18),
-      new Enemy('Enemy3', 2, 9, 40, 12),
-      new Enemy('Enemy4', 3, 8, 80, 20)
-    ];
+    this.heroes = [];
+    this.enemies = [];
 
     // Properti state pertarungan
     this.currentTurn = 'hero';
@@ -124,7 +21,7 @@ export default class Battle {
     this.pendingMove = null;    // { hero, originalPosition: {col, row}, newPosition: {col, row} }
 
     this.findPath = (grid, start, goal, maxRange) => {
-      return findPath(grid, start, goal, maxRange, this.enemies);
+      return Pathfinder.findPath(grid, start, goal, maxRange, grid.obstacles, this.enemies);
     };
 
     this.hexOverlayProgress = 0; // Nilai 0 = overlay tidak terlihat, 1 = overlay penuh

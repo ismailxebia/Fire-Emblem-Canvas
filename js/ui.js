@@ -7,139 +7,47 @@ export function setupActionMenu(game) {
   const btnConfirm = document.getElementById('btnConfirm');
   const btnCancel = document.getElementById('btnCancel');
 
-  // Tombol Move: Masuk ke mode move dan siapkan pendingMove
+  // Tombol Move
   document.getElementById('btnMove').addEventListener('click', () => {
-    game.attackMode = false; // non-attack mode
-    btnAttackConfirm.style.display = 'none';
-    btnConfirm.style.display = 'inline-block'; // untuk mode move
-    if (game.battle.selectedHero) {
-      game.battle.actionMode = 'move';
-      if (!game.battle.pendingMove) {
-        game.battle.pendingMove = {
-          hero: game.battle.selectedHero,
-          originalPosition: {
-            col: game.battle.selectedHero.col,
-            row: game.battle.selectedHero.row
-          },
-          newPosition: null
-        };
-      }
-      updateProfileStatus(game.battle.selectedHero);
-    }
-    actionMenu.style.display = 'none';
+    if (game.actionSystem) game.actionSystem.activateMoveMode();
   });
 
-  // Tombol Wait: Tandai hero telah bertindak (tanpa move)
+  // Tombol Wait (Action Menu)
   document.getElementById('btnWait').addEventListener('click', () => {
-    if (game.battle.selectedHero) {
-      game.battle.selectedHero.actionTaken = true;
-    }
-    game.attackMode = false;
-    btnAttackConfirm.style.display = 'none';
-    btnConfirm.style.display = 'inline-block';
-    actionMenu.style.display = 'none';
-    game.battle.selectedHero = null;
-    game.battle.actionMode = 'normal';
-    updateProfileStatus(null);
+    if (game.actionSystem) game.actionSystem.wait();
   });
 
-  // Tombol Attack (di action menu):
-  // Masuk ke attack mode, tampilkan confirmMenu dengan hanya tombol Cancel
+  // Tombol Attack (Action Menu)
   document.getElementById('btnAttack').addEventListener('click', () => {
-    if (game.battle.selectedHero && !game.battle.selectedHero.actionTaken) {
-      const hero = game.battle.selectedHero;
-      // Cek apakah ada enemy dalam attack range (untuk memunculkan tombol di actionMenu jika dibutuhkan)
-      let canAttack = false;
-      for (let enemy of game.battle.enemies) {
-        const distance = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
-        if (distance <= hero.attackRange) {
-          canAttack = true;
-          break;
-        }
-      }
-      // Masuk attack mode
-      game.attackMode = true;
-      game.attackType = 'physical';
-      game.battle.actionMode = 'selected';
-      actionMenu.style.display = 'none';
-      // Tampilkan confirmMenu, namun sembunyikan tombol AttackConfirm dan Confirm
-      confirmMenu.style.display = 'block';
-      btnAttackConfirm.style.display = 'none';
-      btnConfirm.style.display = 'none';
-      // Hanya tombol Cancel yang harus tampil
-      btnCancel.style.display = 'inline-block';
-      updateProfileStatus(hero);
-    }
+    if (game.actionSystem) game.actionSystem.activateAttackMode('physical');
   });
 
-  // Tombol Magic: serupa dengan Attack tetapi menandai tipe magic
+  // Tombol Magic (Action Menu)
   document.getElementById('btnMagic').addEventListener('click', () => {
-    if (game.battle.selectedHero && !game.battle.selectedHero.actionTaken) {
-      const hero = game.battle.selectedHero;
-      game.attackMode = true;
-      game.attackType = 'magic';
-      game.battle.actionMode = 'selected';
-      actionMenu.style.display = 'none';
-      confirmMenu.style.display = 'block';
-      btnAttackConfirm.style.display = 'none';
-      btnConfirm.style.display = 'none';
-      btnCancel.style.display = 'inline-block';
-      updateProfileStatus(hero);
-    }
+    if (game.actionSystem) game.actionSystem.activateAttackMode('magic');
   });
 
-  // Tombol Confirm: Finalisasi perpindahan (mode move)
+  // Tombol Confirm (Wait in Confirm Menu)
   btnConfirm.addEventListener('click', () => {
-    if (game.battle.pendingMove) {
-      game.battle.pendingMove.hero.actionTaken = true;
-      game.battle.pendingMove = null;
-      confirmMenu.style.display = 'none';
-      game.battle.actionMode = 'normal';
-      game.attackMode = false;
-      btnAttackConfirm.style.display = 'none';
-      btnConfirm.style.display = 'inline-block';
-      game.battle.selectedHero = null;
-      updateProfileStatus(null);
-    }
+    if (game.actionSystem) game.actionSystem.wait();
   });
 
-  // Tombol Attack Confirm: (Placeholder, tidak aktif di fase attack)
+  // Tombol Attack Confirm (Attack from new position)
   btnAttackConfirm.addEventListener('click', () => {
-    if (game.battle.selectedHero && game.attackMode) {
-      alert('Attack action executed (via Attack Confirm placeholder)');
-      game.battle.selectedHero.actionTaken = true;
-      game.battle.actionMode = 'normal';
-      game.attackMode = false;
-      btnAttackConfirm.style.display = 'none';
-      confirmMenu.style.display = 'none';
-      updateProfileStatus(null);
-    }
+    if (game.actionSystem) game.actionSystem.activateAttackMode('physical');
   });
 
-  // Tombol Cancel: Batalkan move/attack, kembalikan posisi hero atau batalkan attack mode
+  // Tombol Magic Confirm
+  const btnMagicConfirm = document.getElementById('btnMagicConfirm');
+  if (btnMagicConfirm) {
+    btnMagicConfirm.addEventListener('click', () => {
+      if (game.actionSystem) game.actionSystem.activateAttackMode('magic');
+    });
+  }
+
+  // Tombol Cancel
   btnCancel.addEventListener('click', () => {
-    if (game.battle.pendingMove) {
-      // Batalkan perpindahan (mode move)
-      const hero = game.battle.pendingMove.hero;
-      hero.col = game.battle.pendingMove.originalPosition.col;
-      hero.row = game.battle.pendingMove.originalPosition.row;
-      game.battle.pendingMove = null;
-      confirmMenu.style.display = 'none';
-      game.battle.actionMode = 'selected';
-      game.attackMode = false;
-      btnAttackConfirm.style.display = 'none';
-      btnConfirm.style.display = 'inline-block';
-      updateProfileStatus(hero);
-    } else if (game.attackMode) {
-      // Jika di fase attack (tanpa pending move), batalkan attack mode
-      confirmMenu.style.display = 'none';
-      game.attackMode = false;
-      game.attackType = null;
-      game.battle.actionMode = 'selected';
-      // Tampilkan kembali actionMenu dengan tombol Attack dan Wait (sesuai kebutuhan)
-      actionMenu.style.display = 'block';
-      updateProfileStatus(game.battle.selectedHero);
-    }
+    if (game.actionSystem) game.actionSystem.cancelAction();
   });
 }
 
@@ -195,20 +103,20 @@ export function showTurnOverlay(text) {
     console.warn("Elemen .overlayContent tidak ditemukan di dalam #turnOverlay.");
     return;
   }
-  
+
   content.innerHTML = text.replace(/\n/g, '<br>');
-  
+
   content.style.opacity = '0';
   content.style.transform = 'translateY(-20px)';
   overlay.style.display = 'flex';
   void content.offsetWidth;
-  
+
   content.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
   content.style.opacity = '1';
   content.style.transform = 'translateY(0)';
-  
+
   window.gameOverlayActive = true;
-  
+
   setTimeout(() => {
     content.style.opacity = '0';
     content.style.transform = 'translateY(-20px)';

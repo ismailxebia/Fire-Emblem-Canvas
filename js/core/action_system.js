@@ -1,0 +1,368 @@
+
+import { updateProfileStatus } from '../ui.js';
+
+export const ActionState = {
+    IDLE: 'IDLE',
+    HERO_SELECTED: 'HERO_SELECTED',
+    MOVING: 'MOVING',
+    CONFIRM_MOVE: 'CONFIRM_MOVE',
+    SELECT_ATTACK_TARGET: 'SELECT_ATTACK_TARGET',
+    SELECT_MAGIC_TARGET: 'SELECT_MAGIC_TARGET',
+    ENEMY_TURN: 'ENEMY_TURN'
+};
+
+export class ActionSystem {
+    constructor(game) {
+        this.game = game;
+        this.state = ActionState.IDLE;
+        this.selectedHero = null;
+        this.pendingMove = null; // { hero, from: {col, row}, to: {col, row} }
+    }
+
+    reset() {
+        this.state = ActionState.IDLE;
+        this.selectedHero = null;
+        this.pendingMove = null;
+        this.game.battle.selectedHero = null;
+        this.game.battle.actionMode = 'normal';
+        this.game.attackMode = false;
+        this.game.attackType = null;
+
+        this.updateUI();
+    }
+
+    // Called when a tile is clicked
+    handleTileClick(col, row) {
+        if (this.game.turnPhase === 'enemy') return;
+
+        const unit = this.getUnitAt(col, row);
+        const hero = unit && unit.constructor.name === 'Hero' ? unit : null;
+        const enemy = unit && unit.constructor.name === 'Enemy' ? unit : null;
+
+        switch (this.state) {
+            case ActionState.IDLE:
+                if (hero && !hero.actionTaken) {
+                    this.selectHero(hero);
+                } else if (hero) {
+                    // Hero already acted, just show info?
+                    this.selectHero(hero, true);
+                } else if (enemy) {
+                    // Show enemy range/info
+                    this.selectEnemy(enemy);
+                }
+                break;
+
+            case ActionState.HERO_SELECTED:
+                if (hero === this.selectedHero) {
+                    // Clicked self again, deselect
+                    this.reset();
+                } else if (hero && !hero.actionTaken) {
+                    // Switch selection
+                    this.selectHero(hero);
+                } else {
+                    // Clicked empty space or enemy, deselect
+                    this.reset();
+                }
+                break;
+
+            case ActionState.MOVING:
+            case ActionState.CONFIRM_MOVE: // Allow re-selecting tile
+                this.handleMoveSelection(col, row);
+                break;
+
+            case ActionState.SELECT_ATTACK_TARGET:
+            case ActionState.SELECT_MAGIC_TARGET:
+                this.handleAttackTargetSelection(col, row);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    selectHero(hero, readonly = false) {
+        this.selectedHero = hero;
+        this.game.battle.selectedHero = hero;
+        updateProfileStatus(hero);
+
+        if (readonly) {
+            this.state = ActionState.IDLE; // Or a specific READONLY state
+            this.game.battle.actionMode = 'normal';
+            this.hideAllMenus();
+        } else {
+            this.state = ActionState.HERO_SELECTED;
+            this.game.battle.actionMode = 'selected';
+            this.showActionMenu();
+        }
+    }
+
+    selectEnemy(enemy) {
+        // Just show info for now
+        updateProfileStatus(enemy);
+        this.game.battle.enemies.forEach(e => e.selected = false);
+        enemy.selected = true;
+        this.game.battle.actionMode = 'enemySelected';
+    }
+
+    activateMoveMode() {
+        if (!this.selectedHero) return;
+        this.state = ActionState.MOVING;
+        this.game.battle.actionMode = 'move';
+        this.game.battle.pendingMove = {
+            hero: this.selectedHero,
+            originalPosition: { col: this.selectedHero.col, row: this.selectedHero.row },
+            newPosition: null
+        };
+        this.hideAllMenus();
+    }
+
+    handleMoveSelection(col, row) {
+        const hero = this.selectedHero;
+        const origin = this.game.battle.pendingMove.originalPosition;
+
+        // Calculate distance
+        const dist = Math.abs(col - origin.col) + Math.abs(row - origin.row);
+
+        // Validate range
+        if (dist > hero.movementRange) {
+            return;
+        }
+
+        // Validate occupancy (unless it's self)
+        const occupant = this.getUnitAt(col, row);
+        if (occupant && occupant !== hero) {
+            return; // Cannot move to occupied tile
+        }
+
+        // Special case: Clicking self (Stay)
+        if (col === origin.col && row === origin.row) {
+            this.game.battle.pendingMove.newPosition = { col, row };
+            // Ensure hero visually moves back to start if they were elsewhere
+            hero.startMove(this.game.grid, col, row);
+
+            this.state = ActionState.CONFIRM_MOVE;
+            this.showConfirmMenu();
+            return;
+        }
+
+        // Validate path (using Pathfinder)
+        const path = this.game.battle.findPath(this.game.grid, origin, { col, row }, hero.movementRange);
+        if (path.length === 0) {
+            return; // No valid path
+        }
+
+        // Valid move!
+
+        // If we are already in CONFIRM_MOVE and re-selecting, we might need to reset position first?
+        // Actually startMove handles interpolation from current pixelX/Y, so it should be fine.
+
+        this.game.battle.pendingMove.newPosition = { col, row };
+
+        // Move the hero visually to the new spot immediately for "Confirm" phase
+        hero.startMove(this.game.grid, col, row);
+
+        this.state = ActionState.CONFIRM_MOVE;
+        this.showConfirmMenu();
+    }
+
+    activateAttackMode(type = 'physical') {
+        this.state = type === 'magic' ? ActionState.SELECT_MAGIC_TARGET : ActionState.SELECT_ATTACK_TARGET;
+        this.game.attackMode = true;
+        this.game.attackType = type;
+        this.game.battle.actionMode = 'selected'; // To show range overlay
+        this.hideAllMenus();
+
+        // Show cancel button only (or back)
+        const confirmMenu = document.getElementById('confirmMenu');
+        if (confirmMenu) {
+            confirmMenu.style.display = 'block';
+            document.getElementById('btnAttackConfirm').style.display = 'none';
+            document.getElementById('btnConfirm').style.display = 'none';
+            document.getElementById('btnCancel').style.display = 'inline-block';
+        }
+    }
+
+    handleAttackTargetSelection(col, row) {
+        const enemy = this.getUnitAt(col, row);
+        if (enemy && enemy.constructor.name === 'Enemy') {
+            // Check range
+            const hero = this.selectedHero;
+            const dist = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
+            if (dist <= hero.attackRange) {
+                this.executeAttack(enemy);
+            }
+        }
+    }
+
+    calculateDamage(attacker, defender) {
+        // Simple damage logic: Physical vs Magic
+        // If it's the hero attacking, check game.attackType
+        // If it's enemy counter, assume physical for now (or add enemy magic property later)
+        if (attacker === this.selectedHero && this.game.attackType === 'magic') {
+            return Math.max(0, attacker.attack - defender.res);
+        }
+        return Math.max(0, attacker.attack - defender.def);
+    }
+
+    executeAttack(target) {
+        const hero = this.selectedHero;
+        const damage = this.calculateDamage(hero, target);
+
+        // Calculate Counter Damage
+        let counterDamage = null;
+        const dist = Math.abs(hero.col - target.col) + Math.abs(hero.row - target.row);
+        // Enemy can counter if in range
+        const range = target.attackRange || 1;
+        if (dist <= range) {
+            // Enemy counter is assumed physical for now
+            counterDamage = Math.max(0, target.attack - hero.def);
+        }
+
+        // Trigger Battle Scene
+        this.hideAllMenus();
+        this.game.battleScene.start(hero, target, damage, counterDamage, () => {
+            // Apply damage after animation
+            target.health = Math.max(0, target.health - damage);
+            console.log(`${hero.name} attacks ${target.name} for ${damage} damage!`);
+
+            // Apply counter damage if enemy survived
+            if (counterDamage !== null && target.health > 0) {
+                hero.health = Math.max(0, hero.health - counterDamage);
+                console.log(`${target.name} counters ${hero.name} for ${counterDamage} damage!`);
+            }
+
+            // Mark action taken
+            this.finalizeAction();
+        });
+    }
+
+    wait() {
+        this.finalizeAction();
+    }
+
+    finalizeAction() {
+        if (this.selectedHero) {
+            this.selectedHero.actionTaken = true;
+        }
+        this.reset();
+    }
+
+    cancelAction() {
+        // Revert move if pending
+        if (this.game.battle.pendingMove) {
+            const { hero, originalPosition } = this.game.battle.pendingMove;
+            hero.col = originalPosition.col;
+            hero.row = originalPosition.row;
+            // Reset visual position
+            const pos = this.game.grid.getCellPosition(hero.col, hero.row);
+            hero.pixelX = pos.x;
+            hero.pixelY = pos.y;
+
+            this.game.battle.pendingMove = null;
+        }
+
+        // Go back to Hero Selected state
+        if (this.selectedHero) {
+            this.state = ActionState.HERO_SELECTED;
+            this.game.battle.actionMode = 'selected';
+            this.showActionMenu();
+        } else {
+            this.reset();
+        }
+    }
+
+    // Helpers
+    getUnitAt(col, row) {
+        return this.game.battle.heroes.find(h => h.col === col && h.row === row) ||
+            this.game.battle.enemies.find(e => e.col === col && e.row === row);
+    }
+
+    showActionMenu() {
+        const menu = document.getElementById('actionMenu');
+        if (menu) menu.style.display = 'block';
+        this.hideConfirmMenu();
+
+        // Update buttons based on context (e.g. can attack?)
+        this.updateActionButtons();
+    }
+
+    updateActionButtons() {
+        const hero = this.selectedHero;
+        if (!hero) return;
+
+        const btnAttack = document.getElementById('btnAttack');
+        const btnMagic = document.getElementById('btnMagic');
+
+        // Check if any enemy is in range
+        let canAttack = false;
+        for (const enemy of this.game.battle.enemies) {
+            if (enemy.health <= 0) continue;
+            const dist = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
+            if (dist <= hero.attackRange) {
+                canAttack = true;
+                break;
+            }
+        }
+
+        if (btnAttack) btnAttack.style.display = canAttack ? 'block' : 'none';
+        if (btnMagic) btnMagic.style.display = canAttack ? 'block' : 'none'; // Assuming magic has same range for now
+    }
+
+    showConfirmMenu() {
+        const menu = document.getElementById('confirmMenu');
+        if (menu) {
+            menu.style.display = 'block';
+            // Show Wait and Cancel
+            document.getElementById('btnConfirm').style.display = 'inline-block'; // Re-purposed as Wait
+            document.getElementById('btnConfirm').textContent = 'Wait';
+            document.getElementById('btnCancel').style.display = 'inline-block';
+
+            // Check if can attack from new position
+            let canAttack = false;
+            const hero = this.selectedHero;
+            // Use pending new position if available, otherwise current position
+            const currentPos = this.game.battle.pendingMove ? this.game.battle.pendingMove.newPosition : { col: hero.col, row: hero.row };
+
+            for (const enemy of this.game.battle.enemies) {
+                if (enemy.health <= 0) continue;
+                const dist = Math.abs(currentPos.col - enemy.col) + Math.abs(currentPos.row - enemy.row);
+                if (dist <= hero.attackRange) {
+                    canAttack = true;
+                    break;
+                }
+            }
+
+            const btnAttackConfirm = document.getElementById('btnAttackConfirm');
+            if (btnAttackConfirm) {
+                btnAttackConfirm.style.display = canAttack ? 'inline-block' : 'none';
+            }
+
+            const btnMagicConfirm = document.getElementById('btnMagicConfirm');
+            if (btnMagicConfirm) {
+                btnMagicConfirm.style.display = canAttack ? 'inline-block' : 'none';
+            }
+        }
+        this.hideActionMenu();
+    }
+
+    hideActionMenu() {
+        const menu = document.getElementById('actionMenu');
+        if (menu) menu.style.display = 'none';
+    }
+
+    hideConfirmMenu() {
+        const menu = document.getElementById('confirmMenu');
+        if (menu) menu.style.display = 'none';
+    }
+
+    hideAllMenus() {
+        this.hideActionMenu();
+        this.hideConfirmMenu();
+    }
+
+    updateUI() {
+        if (this.state === ActionState.IDLE) {
+            this.hideAllMenus();
+        }
+    }
+}

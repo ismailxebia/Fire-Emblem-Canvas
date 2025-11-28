@@ -1,4 +1,3 @@
-// js/game.js
 import Grid from './grid.js';
 import Battle from './battle.js';
 import { handleInput } from './input.js';
@@ -6,7 +5,10 @@ import { loadStageData } from './stage/stage01.js';
 import { loadHeroData } from './core/herodata.js';
 import { loadEnemyData } from './core/enemydata.js';
 import EffectManager from './effect/effectmanager.js';
-import { showTurnOverlay, updateProfileStatus } from './ui.js';
+import { showTurnOverlay, updateProfileStatus, setupActionMenu } from './ui.js';
+import { AISystem } from './core/ai_system.js';
+import { ActionSystem, ActionState } from './core/action_system.js';
+import { BattleScene } from './core/battle_scene.js';
 
 export default class Game {
   constructor(canvas, ctx) {
@@ -27,6 +29,11 @@ export default class Game {
     this.battle = new Battle(this.grid);
     // Penting: beri battle akses ke game untuk pattern
     this.battle.game = this;
+
+    // Initialize Systems
+    this.aiSystem = new AISystem(this.battle, this.grid);
+    this.actionSystem = new ActionSystem(this);
+    this.battleScene = new BattleScene(this);
 
     if (this.stageData.heroPositions) {
       this.battle.heroes.forEach((hero, index) => {
@@ -52,16 +59,36 @@ export default class Game {
     loadHeroData().then(loadedHeroes => {
       if (loadedHeroes.length > 0) {
         this.battle.heroes = loadedHeroes;
+        // Re-apply positions if needed or ensure loaded data has positions
+        if (this.stageData.heroPositions) {
+          this.battle.heroes.forEach((hero, index) => {
+            if (this.stageData.heroPositions[index]) {
+              hero.col = this.stageData.heroPositions[index].col;
+              hero.row = this.stageData.heroPositions[index].row;
+            }
+          });
+        }
       }
     }).catch(error => console.error("Error loading hero data:", error));
 
     loadEnemyData().then(loadedEnemies => {
       if (loadedEnemies.length > 0) {
         this.battle.enemies = loadedEnemies;
+        if (this.stageData.enemyPositions) {
+          this.battle.enemies.forEach((enemy, index) => {
+            if (this.stageData.enemyPositions[index]) {
+              enemy.col = this.stageData.enemyPositions[index].col;
+              enemy.row = this.stageData.enemyPositions[index].row;
+              enemy.hexRange = this.stageData.enemyPositions[index].hexRange || 1;
+              enemy.movementRange = enemy.hexRange;
+            }
+          });
+        }
       }
     }).catch(error => console.error("Error loading enemy data:", error));
 
     handleInput(this);
+    setupActionMenu(this); // Move setupActionMenu here to ensure game is initialized
 
     const stageWidth = this.grid.stageWidth || canvas.width;
     const stageHeight = this.grid.stageHeight || canvas.height;
@@ -96,40 +123,11 @@ export default class Game {
     setTimeout(() => {
       this.turnPhase = 'hero';
       window.gameOverlayActive = false;
-      // Reset attack mode ketika giliran hero dimulai
-      this.attackMode = false;
-      this.attackType = null;
+      this.actionSystem.reset();
     }, 3000);
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
-    this.attackMode = false; // Flag attack mode
-    this.attackType = null;  // 'physical' atau 'magic'
-  }
-
-  isCellOccupied(col, row) {
-    if (this.grid.obstacles && this.grid.obstacles.some(o => o.col === col && o.row === row)) return true;
-    if (this.battle.heroes.some(hero => hero.col === col && hero.row === row)) return true;
-    if (this.battle.enemies.some(enemy => enemy.col === col && enemy.row === row)) return true;
-    return false;
-  }
-
-  getCandidateCells(enemy) {
-    const candidates = [];
-    const range = enemy.movementRange;
-    for (let c = enemy.col - range; c <= enemy.col + range; c++) {
-      for (let r = enemy.row - range; r <= enemy.row + range; r++) {
-        if (Math.abs(c - enemy.col) + Math.abs(r - enemy.row) <= range) {
-          if (c < 0 || c >= this.grid.cols || r < 0 || r >= this.grid.rows) continue;
-          if (c === enemy.col && r === enemy.row) {
-            candidates.push({ col: c, row: r });
-          } else if (!this.isCellOccupied(c, r)) {
-            candidates.push({ col: c, row: r });
-          }
-        }
-      }
-    }
-    return candidates;
   }
 
   drawEnemyHexRange(enemy, ctx) {
@@ -158,7 +156,7 @@ export default class Game {
     ctx.fillStyle = "rgba(255,255,255,0.15)"; // fill putih transparan 15%
     ctx.strokeStyle = "rgba(255,255,255,0.3)"; // stroke putih
     ctx.lineWidth = 2;
-  
+
     for (let c = hero.col - attackRange; c <= hero.col + attackRange; c++) {
       for (let r = hero.row - attackRange; r <= hero.row + attackRange; r++) {
         if (Math.abs(c - hero.col) + Math.abs(r - hero.row) <= attackRange) {
@@ -167,11 +165,11 @@ export default class Game {
           const cellX = pos.x - this.camera.x;
           const cellY = pos.y - this.camera.y;
           const tileSize = this.grid.tileSize;
-  
+
           // Overlay dasar
           ctx.fillRect(cellX, cellY, tileSize, tileSize);
           ctx.strokeRect(cellX, cellY, tileSize, tileSize);
-  
+
           // Cek apakah cell ditempati enemy
           const occupantEnemy = this.battle.enemies.find(e => e.col === c && e.row === r && e.health > 0);
           if (occupantEnemy) {
@@ -183,41 +181,10 @@ export default class Game {
         }
       }
     }
-  
+
     ctx.restore();
   }
-  
-  checkAttackAvailability() {
-    if (this.turnPhase === 'hero' && this.battle.selectedHero && !this.battle.selectedHero.actionTaken) {
-      let available = false;
-      const hero = this.battle.selectedHero;
-      for (let enemy of this.battle.enemies) {
-        const distance = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
-        if (distance <= hero.attackRange) {
-          available = true;
-          break;
-        }
-      }
-  
-      const attackBtn = document.getElementById('btnAttack');
-      const btnAttackConfirm = document.getElementById('btnAttackConfirm');
-  
-      if (attackBtn && btnAttackConfirm) {
-        if (available) {
-          attackBtn.style.display = 'inline-block';
-          if (this.attackMode) {
-            btnAttackConfirm.style.display = 'none';
-          } else {
-            btnAttackConfirm.style.display = 'inline-block';
-          }
-        } else {
-          attackBtn.style.display = 'none';
-          btnAttackConfirm.style.display = 'none';
-        }
-      }
-    }
-  }
-  
+
   processNextEnemy() {
     if (this.currentEnemyIndex >= this.battle.enemies.length) {
       this.enemyTurnProcessing = false;
@@ -230,12 +197,13 @@ export default class Game {
       setTimeout(() => {
         this.turnPhase = 'hero';
         window.gameOverlayActive = false;
+        this.actionSystem.reset();
       }, 3000);
       return;
     }
-  
+
     let enemy = this.battle.enemies[this.currentEnemyIndex];
-    if (enemy.actionTaken) {
+    if (enemy.actionTaken || enemy.health <= 0) {
       this.currentEnemyIndex++;
       this.processNextEnemy();
       return;
@@ -243,34 +211,12 @@ export default class Game {
     enemy.showHexRange = true;
     enemy.selected = true;
     updateProfileStatus(enemy);
-  
+
     setTimeout(() => {
-      let candidates = this.getCandidateCells(enemy);
-      let dest = { col: enemy.col, row: enemy.row };
-      let targetHero = null;
-      let minDist = Infinity;
-      this.battle.heroes.forEach(hero => {
-        const dist = Math.abs(enemy.col - hero.col) + Math.abs(enemy.row - hero.row);
-        if (dist < minDist) {
-          minDist = dist;
-          targetHero = hero;
-        }
-      });
-      if (targetHero && candidates.length > 0) {
-        let bestCandidate = null;
-        let bestDistance = Infinity;
-        candidates.forEach(cell => {
-          const d = Math.abs(cell.col - targetHero.col) + Math.abs(cell.row - targetHero.row);
-          if (d < bestDistance) {
-            bestDistance = d;
-            bestCandidate = cell;
-          }
-        });
-        if (bestCandidate) dest = bestCandidate;
-      }
-      
+      const dest = this.aiSystem.calculateMove(enemy);
+
       enemy.initialPosition = { col: enemy.col, row: enemy.row };
-      
+
       setTimeout(() => {
         enemy.startMove(this.grid, dest.col, dest.row);
         enemy.actionTaken = true;
@@ -283,21 +229,28 @@ export default class Game {
       }, 1000);
     }, 1000);
   }
-  
+
   update(timestamp) {
     const deltaTime = timestamp - this.lastTime;
     this.lastTime = timestamp;
+
+    if (this.battleScene && this.battleScene.active) {
+      this.battleScene.update(deltaTime);
+      return; // Skip other updates while battle scene is active
+    }
+
     this.battle.update(deltaTime);
     if (this.effectManager) {
       this.effectManager.update(deltaTime, this.camera);
     }
-  
+
     if (this.turnPhase === 'hero') {
-      this.checkAttackAvailability();
-      const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken);
+      // this.checkAttackAvailability(); // Removed, handled by ActionSystem
+      const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken || hero.health <= 0);
       if (allHeroesActed) {
         setTimeout(() => {
           this.turnPhase = 'enemy';
+          this.actionSystem.state = ActionState.ENEMY_TURN;
           window.gameOverlayActive = true;
         }, 1000);
       }
@@ -309,35 +262,44 @@ export default class Game {
       }
     }
   }
-  
+
   render(ctx) {
+    // Clear canvas
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    if (this.backgroundImage.complete) {
-      const stageWidth = this.grid.stageWidth;
-      const stageHeight = this.grid.stageHeight;
-      const scale = Math.max(stageWidth / this.backgroundImage.width, stageHeight / this.backgroundImage.height);
-      const scaledWidth = this.backgroundImage.width * scale;
-      const scaledHeight = this.backgroundImage.height * scale;
-      const offsetX = (stageWidth - scaledWidth) / 2;
-      const offsetY = (stageHeight - scaledHeight) / 2;
-      const destX = offsetX - this.camera.x;
-      const destY = offsetY - this.camera.y;
-      ctx.drawImage(this.backgroundImage, destX, destY, scaledWidth, scaledHeight);
+
+    if (this.battleScene && this.battleScene.active) {
+      this.battleScene.render(ctx);
+      return;
+    }
+
+    // Draw background
+    if (this.backgroundImage.complete && this.backgroundImage.naturalWidth > 0) {
+      // Simple cover logic
+      const scale = Math.max(this.canvas.width / this.backgroundImage.width, this.canvas.height / this.backgroundImage.height);
+      const w = this.backgroundImage.width * scale;
+      const h = this.backgroundImage.height * scale;
+      ctx.drawImage(this.backgroundImage, -this.camera.x, -this.camera.y, w, h);
     } else {
-      ctx.fillStyle = '#cccccc';
+      ctx.fillStyle = '#333';
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-  
+
+    // Draw grid/battle
+    this.grid.render(ctx, this.camera); // Keep grid render here
+    this.battle.render(ctx, this.camera);
+
+    // Draw effects
     if (this.effectManager) {
       this.effectManager.render(ctx, this.camera);
     }
-    this.grid.render(ctx, this.camera);
-  
-    // Jika mode attack aktif, gambar overlay attack range untuk hero yang dipilih
-    if (this.turnPhase === 'hero' && this.attackMode && this.battle.selectedHero) {
-      this.drawAttackRangeOverlay(this.battle.selectedHero, ctx);
+
+    // Draw attack range overlay if needed
+    if (this.actionSystem.state === ActionState.SELECT_ATTACK_TARGET ||
+      this.actionSystem.state === ActionState.SELECT_MAGIC_TARGET) {
+      if (this.battle.selectedHero) {
+        this.drawAttackRangeOverlay(this.battle.selectedHero, ctx);
+      }
     }
-  
     // Gambar overlay hex range untuk enemy yang sedang aktif (di bawah unit)
     if (this.turnPhase === 'enemy' && this.enemyTurnProcessing && this.currentEnemyIndex < this.battle.enemies.length) {
       let enemy = this.battle.enemies[this.currentEnemyIndex];
@@ -345,7 +307,7 @@ export default class Game {
         this.drawEnemyHexRange(enemy, ctx);
       }
     }
-  
+
     // Gambar selected indicator untuk enemy
     this.battle.enemies.forEach(enemy => {
       if (enemy.selected) {
@@ -361,7 +323,7 @@ export default class Game {
         }
       }
     });
-  
+
     this.battle.render(ctx, this.camera);
   }
 }

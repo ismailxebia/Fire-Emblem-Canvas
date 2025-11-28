@@ -11,10 +11,7 @@ export default class Grid {
     this.padding = 8; // Safe area padding 8px di sekeliling
     this.updateDimensions(canvasWidth);
     // Contoh obstacle
-    this.obstacles = [
-      { col: 1, row: 1 },
-      { col: 2, row: 1 }
-    ];
+    this.obstacles = [];
   }
 
   /**

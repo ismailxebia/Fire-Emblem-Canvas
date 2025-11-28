@@ -1,4 +1,4 @@
-// js/entities/hero.js
+import Unit from './unit.js';
 
 // Definisikan kecepatan default secara global (dalam pixel per detik)
 const DEFAULT_MOVE_SPEED = 850;
@@ -14,7 +14,7 @@ const ACTION_CONFIG = {
   magicIdle: { row: 2, frameCount: 4 }
 };
 
-export class Hero {
+export class Hero extends Unit {
   /**
    * Konstruktor Hero
    * Parameter:
@@ -49,11 +49,7 @@ export class Hero {
     res,
     attackRange = 1
   ) {
-    this.name = name;
-    this.col = col;
-    this.row = row;
-    this.health = health;
-    this.attack = attack;
+    super(name, col, row, health, attack);
     this.movementRange = movementRange;
     this.moveSpeed = DEFAULT_MOVE_SPEED;
     this.attackRange = attackRange; // Tambahan properti attackRange
