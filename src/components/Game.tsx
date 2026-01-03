@@ -93,8 +93,8 @@ const GameComponent: React.FC = () => {
         if (!ctx) return;
 
         // Get device pixel ratio for crisp rendering on Retina displays
-        // Cap at 2 to improve performance on high-DPI mobile devices (saves GPU/battery)
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        // Cap at 3 to allow sharper visuals on high-end devices (native is usually 3-4 on flagships)
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
         const resizeCanvas = () => {
             const width = container.clientWidth;
