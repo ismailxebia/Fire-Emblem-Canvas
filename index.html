@@ -1,94 +1,20 @@
-<!DOCTYPE html>
-<html lang="id">
+<!doctype html>
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Game Tactical RPG</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Trirong:wght@300;400;700&display=swap" rel="stylesheet">
-
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fire Emblem Canvas (React)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+20&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Trirong:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <div id="statusContainer">
-        <div id="profileStatus">
-            <div class="portrait">
-                <div class="levelTag">LV 00</div>
-                <img id="heroPortrait" alt="Hero">
-            </div>
-
-            <div class="infoContainer">
-                <div class="nameStars">
-                    <div class="heroName textStroke">Select Hero for View Status</div>
-                    <div class="stars">
-                    </div>
-                </div>
-
-                <div class="hpBarContainer">
-                    <span class="hpLabel textStroke">HP</span>
-                    <div class="hpBar">
-                        <div class="hpFill textStroke" style="width: 0%;"></div>
-                    </div>
-                    <span class="hpValue"></span>
-                </div>
-
-                <div class="attributes">
-                    <span class="stat">ATK : 0</span>
-                    <span class="stat">DEF : 0</span>
-                    <span class="stat">SPD : 0</span>
-                    <span class="stat">RES : 0</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <div id="canvasContainer">
-        <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <div id="actionMenu"
-        style="display:none; position: absolute; left: 16px; top: 120px; background: #ddd; padding: 10px; border: 1px solid #aaa;border-radius: 12px;z-index: 1001;">
-        <button id="btnMove">Move</button>
-        <button id="btnWait">Wait</button>
-        <button id="btnAttack">Attack</button>
-        <button id="btnMagic">Magic</button>
-    </div>
-
-    <div id="confirmMenu"
-        style="display:none; position: absolute; left: 16px; top: 120px; background: #ccc; padding: 10px; border: 1px solid #888;">
-        <button id="btnAttackConfirm">Attack</button>
-        <button id="btnMagicConfirm">Magic</button>
-        <button id="btnConfirm">Wait</button>
-        <button id="btnCancel">Cancel</button>
-    </div>
-
-    <div id="loadingScreen">
-        <div class="loadingContent">
-            <div class="loadingIconContainer">
-                <img src="assets/loading-icon.svg" class="loadingIcon" alt="Loading">
-                <span class="loadingPercent">0%</span>
-            </div>
-            <div class="loadingTitle">Battlefield #1</div>
-            <div class="loadingSubtitle">Battle of Armagedon</div>
-            <div class="loadingFooter">Created by Genoflow Demo Version</div>
-        </div>
-    </div>
-
-    <div id="turnOverlay">
-        <div class="turnBannerLeft"></div>
-        <div class="turnBannerRight"></div>
-        <div class="turnContent">
-            <div class="turnText"></div>
-        </div>
-    </div>
-
-    <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"></script>
-    <script type="module" src="js/main.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 
 </html>

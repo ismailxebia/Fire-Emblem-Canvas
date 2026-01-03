@@ -1,0 +1,8 @@
+/* App specific styles can go here */
+/* Overwrite default template styles that might interfere with the game canvas */
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
