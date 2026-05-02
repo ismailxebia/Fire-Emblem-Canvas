@@ -64,10 +64,12 @@ const GameComponent: React.FC = () => {
             </div>
 
             <div id="turnOverlay">
-                <div className="turnBannerLeft"></div>
-                <div className="turnBannerRight"></div>
+                <div className="turnDim"></div>
+                <div className="turnBannerStripe"></div>
                 <div className="turnContent">
+                    <div className="turnDecor turnDecorTop" aria-hidden="true"></div>
                     <div className="turnText"></div>
+                    <div className="turnDecor turnDecorBottom" aria-hidden="true"></div>
                 </div>
             </div>
         </>

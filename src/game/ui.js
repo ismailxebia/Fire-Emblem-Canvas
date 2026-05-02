@@ -103,36 +103,32 @@ export function updateProfileStatus(unit) {
 
 export function showTurnOverlay(text) {
   const overlay = document.getElementById('turnOverlay');
-  if (!overlay) {
-    return;
-  }
+  if (!overlay) return;
   const turnText = overlay.querySelector('.turnText');
-  if (!turnText) {
-    console.warn("Element .turnText tidak ditemukan di DOM.");
-    return;
-  }
+  if (!turnText) return;
 
-  // Set text
   turnText.textContent = text;
 
-  // Reset state
-  overlay.classList.remove('fadeOut');
-  overlay.style.display = 'block';
+  // Auto-shrink long titles so they always fit on one line
+  overlay.classList.toggle('longTitle', text.length > 14);
 
-  // Trigger enter animation
+  // Clear any inline display that would override CSS class-based visibility
+  overlay.style.display = '';
+  overlay.classList.remove('fadeOut');
+
+  // Force reflow so re-adding .active restarts the animations cleanly
+  void overlay.offsetWidth;
+
   requestAnimationFrame(() => {
     overlay.classList.add('active');
   });
 
-  // Start fade out after 2 seconds
   setTimeout(() => {
     overlay.classList.remove('active');
     overlay.classList.add('fadeOut');
 
-    // Hide completely after fade out
     setTimeout(() => {
-      overlay.style.display = 'none';
       overlay.classList.remove('fadeOut');
-    }, 500);
-  }, 2000);
+    }, 420);
+  }, 1700);
 }

@@ -297,140 +297,245 @@ body,
 }
 
 /* ===========================================================
-   TURN OVERLAY (battle / turn banner)
+   TURN OVERLAY — single elegant ribbon + decorative gold accents
    =========================================================== */
 #turnOverlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     pointer-events: none;
     z-index: 2000;
     display: none;
 }
 
-#turnOverlay.active {
-    display: block;
+#turnOverlay.active,
+#turnOverlay.fadeOut {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.turnBannerLeft,
-.turnBannerRight {
+/* Subtle full-screen dim — focuses attention without going full black */
+.turnDim {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center,
+            rgba(0, 0, 0, 0.35) 0%,
+            rgba(0, 0, 0, 0.55) 100%);
+    opacity: 0;
+}
+
+#turnOverlay.active .turnDim {
+    animation: dimIn 0.35s ease-out forwards;
+}
+
+#turnOverlay.fadeOut .turnDim {
+    animation: dimOut 0.35s ease-in forwards;
+}
+
+@keyframes dimIn {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes dimOut {
+    to {
+        opacity: 0;
+    }
+}
+
+/* Single horizontal ribbon — fades out at horizontal edges so it doesn't
+   feel like a hard rectangle */
+.turnBannerStripe {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 96px;
+    transform: translateY(-50%) scaleY(0);
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(13, 19, 32, 0.85) 12%,
+            rgba(20, 26, 42, 0.92) 50%,
+            rgba(13, 19, 32, 0.85) 88%,
+            transparent 100%);
+    border-top: 1px solid var(--octo-line);
+    border-bottom: 1px solid var(--octo-line);
+    opacity: 0;
+}
+
+#turnOverlay.active .turnBannerStripe {
+    animation: stripeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+#turnOverlay.fadeOut .turnBannerStripe {
+    animation: stripeOut 0.4s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes stripeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-50%) scaleY(0);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(-50%) scaleY(1);
+    }
+}
+
+@keyframes stripeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-50%) scaleY(0.4);
+    }
+}
+
+/* Centered content stack: line · text · line */
+.turnContent {
+    position: relative;
+    z-index: 2001;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+#turnOverlay.active .turnContent {
+    animation: contentIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.18s forwards;
+}
+
+#turnOverlay.fadeOut .turnContent {
+    animation: contentOut 0.35s ease-in forwards;
+}
+
+@keyframes contentIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes contentOut {
+    to {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
+/* Decorative gold line with center diamond gem */
+.turnDecor {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    height: 8px;
+    position: relative;
+    opacity: 0;
+}
+
+.turnDecor::before,
+.turnDecor::after {
+    content: '';
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    height: 110px;
-    width: 60%;
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            var(--octo-gold) 60%,
+            var(--octo-gold-bright));
+}
+
+.turnDecor::before {
+    left: 0;
+}
+
+.turnDecor::after {
+    right: 0;
+    background: linear-gradient(90deg,
+            var(--octo-gold-bright),
+            var(--octo-gold) 40%,
+            transparent);
+}
+
+/* Center diamond (real glyph for visual weight) */
+.turnDecor {
+    color: var(--octo-gold-bright);
+    font-size: 9px;
+    line-height: 1;
+}
+
+.turnDecor::after {
+    /* Override: place gem at center using a wrapper */
+}
+
+/* Use background for the center gem instead of pseudo-elements */
+.turnDecorTop,
+.turnDecorBottom {
     background:
-        linear-gradient(180deg,
-            rgba(13, 19, 32, 0.96) 0%,
-            rgba(28, 36, 56, 0.96) 50%,
-            rgba(13, 19, 32, 0.96) 100%);
-    border-top: 1px solid var(--octo-gold);
-    border-bottom: 1px solid var(--octo-gold);
-    box-shadow:
-        0 0 24px rgba(0, 0, 0, 0.6),
-        inset 0 0 30px rgba(216, 184, 106, 0.1);
-    opacity: 0;
+        radial-gradient(circle at 50% 50%,
+            var(--octo-gold-bright) 0,
+            var(--octo-gold-bright) 1px,
+            var(--octo-gold) 1.5px,
+            transparent 3.5px);
 }
 
-.turnBannerLeft {
-    left: -60%;
-    clip-path: polygon(0 0, 95% 0, 100% 50%, 95% 100%, 0 100%);
+.turnDecorTop {
+    transform-origin: center;
 }
 
-.turnBannerRight {
-    right: -60%;
-    clip-path: polygon(5% 0, 100% 0, 100% 100%, 5% 100%, 0 50%);
+.turnDecorBottom {
+    transform-origin: center;
 }
 
-#turnOverlay.active .turnBannerLeft {
-    animation: slideInLeft 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+#turnOverlay.active .turnDecor {
+    animation: decorExpand 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.28s forwards;
 }
 
-#turnOverlay.active .turnBannerRight {
-    animation: slideInRight 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
+@keyframes decorExpand {
+    from {
+        opacity: 0;
+        transform: scaleX(0.2);
+    }
 
-@keyframes slideInLeft {
     to {
-        left: -5%;
         opacity: 1;
+        transform: scaleX(1);
     }
 }
 
-@keyframes slideInRight {
-    to {
-        right: -5%;
-        opacity: 1;
-    }
-}
-
-.turnContent {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2001;
-}
-
+/* Main turn text — single line, elegant typography */
 .turnText {
     font-family: 'Jersey 20', cursive;
-    font-size: clamp(2.4rem, 8vw, 4.8rem);
+    font-size: clamp(24px, 6.5vw, 36px);
     font-weight: 700;
     color: var(--octo-text);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.22em;
+    /* offset trailing letter-spacing for visual centering */
+    padding-left: 0.22em;
+    white-space: nowrap;
+    line-height: 1;
+    max-width: calc(100vw - 40px);
+    text-align: center;
     text-shadow:
-        0 0 12px rgba(216, 184, 106, 0.7),
-        0 0 24px rgba(216, 184, 106, 0.4),
-        2px 2px 4px rgba(0, 0, 0, 0.9);
-    opacity: 0;
-    transform: scale(0.6);
+        0 0 14px rgba(216, 184, 106, 0.55),
+        0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
-#turnOverlay.active .turnText {
-    animation: textAppear 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s forwards;
+/* Auto-shrink for long titles like "BATTLE OF ARMAGEDDON" */
+#turnOverlay.longTitle .turnText {
+    font-size: clamp(16px, 4.4vw, 24px);
+    letter-spacing: 0.14em;
+    padding-left: 0.14em;
 }
 
-@keyframes textAppear {
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-#turnOverlay.fadeOut .turnBannerLeft {
-    animation: slideOutLeft 0.45s ease-in forwards;
-}
-
-#turnOverlay.fadeOut .turnBannerRight {
-    animation: slideOutRight 0.45s ease-in forwards;
-}
-
-#turnOverlay.fadeOut .turnText {
-    animation: textDisappear 0.45s ease-in forwards;
-}
-
-@keyframes slideOutLeft {
-    to {
-        left: -70%;
-        opacity: 0;
-    }
-}
-
-@keyframes slideOutRight {
-    to {
-        right: -70%;
-        opacity: 0;
-    }
-}
-
-@keyframes textDisappear {
-    to {
-        opacity: 0;
-        transform: scale(1.15);
-    }
+#turnOverlay.longTitle .turnDecor {
+    width: 160px;
 }
 
 /* ===========================================================
