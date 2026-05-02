@@ -49,20 +49,18 @@ const GameComponent: React.FC = () => {
                 <canvas id="gameCanvas" ref={canvasRef}></canvas>
             </div>
 
-            <div id="actionMenu"
-                style={{ display: 'none', position: 'absolute', left: '16px', top: '120px', background: '#ddd', padding: '10px', border: '1px solid #aaa', borderRadius: '12px', zIndex: 1001 }}>
-                <button id="btnMove">Move</button>
-                <button id="btnWait">Wait</button>
-                <button id="btnAttack">Attack</button>
-                <button id="btnMagic">Magic</button>
+            <div id="actionMenu" style={{ display: 'none' }}>
+                <button id="btnMove" type="button">Move</button>
+                <button id="btnWait" type="button">Wait</button>
+                <button id="btnAttack" type="button">Attack</button>
+                <button id="btnMagic" type="button">Magic</button>
             </div>
 
-            <div id="confirmMenu"
-                style={{ display: 'none', position: 'absolute', left: '16px', top: '120px', background: '#ccc', padding: '10px', border: '1px solid #888' }}>
-                <button id="btnAttackConfirm">Attack</button>
-                <button id="btnMagicConfirm">Magic</button>
-                <button id="btnConfirm">Wait</button>
-                <button id="btnCancel">Cancel</button>
+            <div id="confirmMenu" style={{ display: 'none' }}>
+                <button id="btnAttackConfirm" type="button">Attack</button>
+                <button id="btnMagicConfirm" type="button">Magic</button>
+                <button id="btnConfirm" type="button">Wait</button>
+                <button id="btnCancel" type="button">Cancel</button>
             </div>
 
             <div id="turnOverlay">
@@ -126,17 +124,104 @@ const GameComponent: React.FC = () => {
         resizeCanvas();
 
         let animationFrameId: number;
+        let isPaused = false;
 
-        // Initialize game with Supabase data
+        const PRELOAD_ASSETS = [
+            'assets/Selected.png',
+            'assets/Start.png',
+            'assets/End.png',
+            'assets/Lurus.png',
+            'assets/corner_ED.png',
+            'assets/corner_ES.png',
+            'assets/corner_NW.png',
+            'assets/corner_WN.png',
+            'assets/battle-grass.png',
+        ];
+
+        const preloadAssets = async (onProgress: (loaded: number, total: number) => void) => {
+            const total = PRELOAD_ASSETS.length;
+            let loaded = 0;
+            await Promise.all(PRELOAD_ASSETS.map(src => {
+                const img = new Image();
+                img.src = src;
+                const decodePromise = (img.decode ? img.decode().catch(() => { }) : new Promise<void>(res => {
+                    img.onload = () => res();
+                    img.onerror = () => res();
+                }));
+                return decodePromise.then(() => {
+                    loaded++;
+                    onProgress(loaded, total);
+                });
+            }));
+        };
+
+        const startGameLoop = () => {
+            const gameLoop = (timestamp: number) => {
+                if (!isPaused) {
+                    // @ts-ignore
+                    if (window.gameInstance) {
+                        // @ts-ignore
+                        window.gameInstance.update(timestamp);
+                        // @ts-ignore
+                        window.gameInstance.render(ctx);
+                    }
+                }
+                animationFrameId = requestAnimationFrame(gameLoop);
+            };
+            animationFrameId = requestAnimationFrame(gameLoop);
+        };
+
+        // Pause game loop when page hidden (battery + cpu savings)
+        const handleVisibility = () => {
+            isPaused = document.hidden;
+            if (!isPaused) {
+                // Reset lastTime on resume so deltaTime doesn't spike
+                // @ts-ignore
+                if (window.gameInstance) window.gameInstance.lastTime = 0;
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // Capacitor: hardware back button + app state pause
+        let appListeners: Array<{ remove: () => void }> = [];
+        (async () => {
+            try {
+                const { App } = await import('@capacitor/app');
+                const back = await App.addListener('backButton', () => {
+                    // @ts-ignore
+                    const game = window.gameInstance;
+                    if (game?.actionSystem?.cancelCurrent) {
+                        game.actionSystem.cancelCurrent();
+                    } else {
+                        App.exitApp();
+                    }
+                });
+                const state = await App.addListener('appStateChange', ({ isActive }) => {
+                    isPaused = !isActive;
+                    if (isActive) {
+                        // @ts-ignore
+                        if (window.gameInstance) window.gameInstance.lastTime = 0;
+                    }
+                });
+                appListeners.push(back, state);
+            } catch { /* not in Capacitor environment */ }
+        })();
+
+        // Initialize game
         const initGame = async () => {
             try {
-                setLoadingMessage('Loading game data...');
-                setLoadingProgress(20);
+                setLoadingMessage('Preloading assets...');
+                await preloadAssets((loaded, total) => {
+                    const pct = Math.round((loaded / total) * 40); // 0–40%
+                    setLoadingProgress(pct);
+                });
 
-                // Create game with Supabase data (uses cache)
+                setLoadingMessage('Loading game data...');
+                setLoadingProgress(50);
+
                 const game = await createGame(canvas, ctx, 'stage01');
 
-                setLoadingProgress(60);
+                setLoadingProgress(80);
                 setLoadingMessage('Initializing battle...');
 
                 // @ts-ignore
@@ -144,59 +229,32 @@ const GameComponent: React.FC = () => {
                 // @ts-ignore
                 setupActionMenu(window.gameInstance);
 
-                setLoadingProgress(80);
-                setLoadingMessage('Starting game...');
-
-                // Start game loop
-                const gameLoop = (timestamp: number) => {
-                    // @ts-ignore
-                    if (window.gameInstance) {
-                        // @ts-ignore
-                        window.gameInstance.update(timestamp);
-                        // @ts-ignore
-                        window.gameInstance.render(ctx);
-                    }
-                    animationFrameId = requestAnimationFrame(gameLoop);
-                };
-                animationFrameId = requestAnimationFrame(gameLoop);
-
                 setLoadingProgress(100);
-                setTimeout(() => {
-                    setIsLoading(false);
-                }, 500);
+                setLoadingMessage('Ready');
+                startGameLoop();
+                setTimeout(() => setIsLoading(false), 400);
 
             } catch (error) {
-                console.error('[GameComponent] Failed to init with Supabase, using fallback:', error);
+                console.error('[GameComponent] Supabase init failed, using local fallback:', error);
                 setLoadingMessage('Loading local data...');
+                setLoadingProgress(80);
 
-                // Fallback to direct initialization (local JSON)
                 // @ts-ignore
                 window.gameInstance = new Game(canvas, ctx);
                 // @ts-ignore
                 setupActionMenu(window.gameInstance);
 
-                const gameLoop = (timestamp: number) => {
-                    // @ts-ignore
-                    if (window.gameInstance) {
-                        // @ts-ignore
-                        window.gameInstance.update(timestamp);
-                        // @ts-ignore
-                        window.gameInstance.render(ctx);
-                    }
-                    animationFrameId = requestAnimationFrame(gameLoop);
-                };
-                animationFrameId = requestAnimationFrame(gameLoop);
-
                 setLoadingProgress(100);
-                setTimeout(() => {
-                    setIsLoading(false);
-                }, 500);
+                startGameLoop();
+                setTimeout(() => setIsLoading(false), 400);
             }
         };
 
         initGame();
 
         return () => {
+            document.removeEventListener('visibilitychange', handleVisibility);
+            appListeners.forEach(l => { try { l.remove(); } catch { } });
             resizeObserver.disconnect();
             cancelAnimationFrame(animationFrameId);
             // @ts-ignore

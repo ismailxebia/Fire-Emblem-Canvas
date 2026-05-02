@@ -5,6 +5,7 @@ import { loadStageData } from './stage/stage01.js';
 import { loadHeroData } from './core/herodata.js';
 import { loadEnemyData } from './core/enemydata.js';
 import EffectManager from './effect/effectmanager.js';
+import { DamagePopupManager } from './effect/damagePopup.js';
 import { showTurnOverlay, updateProfileStatus, setupActionMenu } from './ui.js';
 import { AISystem } from './core/ai_system.js';
 import { ActionSystem, ActionState } from './core/action_system.js';
@@ -65,6 +66,7 @@ export default class Game {
     const stageWidth = this.grid.stageWidth || canvas.width;
     const stageHeight = this.grid.stageHeight || canvas.height;
     this.effectManager = new EffectManager(stageWidth, stageHeight, this.stageData.effects);
+    this.damagePopups = new DamagePopupManager();
 
     this.selectedIndicator = new Image();
     this.selectedIndicator.src = "assets/Selected.png";
@@ -92,13 +94,17 @@ export default class Game {
     this.turnNumber = 1;
     window.gameOverlayActive = true;
 
+    // Cancellable timer registry — prevents callbacks firing after destroy
+    this._timers = new Set();
+    this._destroyed = false;
+
     // Show battle intro first
     showTurnOverlay(this.stageData.battleName || 'BATTLE START');
 
     // Then show Turn 1 after intro completely fades (2000ms + 500ms fade + buffer)
-    setTimeout(() => {
+    this._setTimeout(() => {
       showTurnOverlay(`TURN ${this.turnNumber}`);
-      setTimeout(() => {
+      this._setTimeout(() => {
         this.turnPhase = 'hero';
         window.gameOverlayActive = false;
         this.actionSystem.reset();
@@ -107,6 +113,23 @@ export default class Game {
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
+  }
+
+  _setTimeout(fn, ms) {
+    if (this._destroyed) return null;
+    const id = setTimeout(() => {
+      this._timers.delete(id);
+      if (!this._destroyed) fn();
+    }, ms);
+    this._timers.add(id);
+    return id;
+  }
+
+  _clearTimers() {
+    if (this._timers) {
+      for (const id of this._timers) clearTimeout(id);
+      this._timers.clear();
+    }
   }
 
   /**
@@ -242,7 +265,7 @@ export default class Game {
       this.battle.enemies.forEach(enemy => enemy.actionTaken = false);
       window.gameOverlayActive = true;
       showTurnOverlay(`TURN ${this.turnNumber}`);
-      setTimeout(() => {
+      this._setTimeout(() => {
         this.turnPhase = 'hero';
         window.gameOverlayActive = false;
         this.actionSystem.reset();
@@ -260,12 +283,12 @@ export default class Game {
     enemy.selected = true;
     updateProfileStatus(enemy);
 
-    setTimeout(() => {
+    this._setTimeout(() => {
       const dest = this.aiSystem.calculateMove(enemy);
 
       enemy.initialPosition = { col: enemy.col, row: enemy.row };
 
-      setTimeout(() => {
+      this._setTimeout(() => {
         enemy.startMove(this.grid, dest.col, dest.row);
         enemy.actionTaken = true;
         enemy.showHexRange = false;
@@ -287,18 +310,14 @@ export default class Game {
         }
 
         if (target) {
-          // Wait for move animation to finish (approx 500ms-1s depending on distance, but startMove is visual)
-          // startMove updates logical pos immediately but visual takes time.
-          // Let's give it a small buffer or rely on the existing 1000ms timeout logic but nested.
-
-          setTimeout(() => {
+          this._setTimeout(() => {
             this.actionSystem.executeEnemyAttack(enemy, target, () => {
               this.currentEnemyIndex++;
               this.processNextEnemy();
             });
           }, 800); // Wait for move to settle
         } else {
-          setTimeout(() => {
+          this._setTimeout(() => {
             this.currentEnemyIndex++;
             this.processNextEnemy();
           }, 1000);
@@ -308,7 +327,8 @@ export default class Game {
   }
 
   update(timestamp) {
-    const deltaTime = timestamp - this.lastTime;
+    if (this.lastTime === 0) this.lastTime = timestamp;
+    const deltaTime = Math.min(timestamp - this.lastTime, 50);
     this.lastTime = timestamp;
 
     if (this.battleScene && this.battleScene.active) {
@@ -320,17 +340,21 @@ export default class Game {
     if (this.effectManager) {
       this.effectManager.update(deltaTime, this.camera);
     }
+    if (this.damagePopups) {
+      this.damagePopups.update(deltaTime);
+    }
 
     if (this.turnPhase === 'hero') {
-      // this.checkAttackAvailability(); // Removed, handled by ActionSystem
       const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken || hero.health <= 0);
-      if (allHeroesActed) {
-        setTimeout(() => {
+      if (allHeroesActed && !this._enemyTransitionPending) {
+        this._enemyTransitionPending = true;
+        this._setTimeout(() => {
+          this._enemyTransitionPending = false;
           this.turnPhase = 'enemy';
           this.actionSystem.state = ActionState.ENEMY_TURN;
           window.gameOverlayActive = true;
           showTurnOverlay('ENEMY TURN');
-          setTimeout(() => {
+          this._setTimeout(() => {
             window.gameOverlayActive = false;
           }, 2500);
         }, 1000);
@@ -364,63 +388,54 @@ export default class Game {
       ctx.fillRect(0, 0, logicalWidth, logicalHeight);
     }
 
-    // Draw grid/battle
-    this.grid.render(ctx, this.camera); // Keep grid render here
-    this.battle.render(ctx, this.camera);
+    // Draw grid (no-op currently)
+    this.grid.render(ctx, this.camera);
 
-    // Draw effects
-    if (this.effectManager) {
-      this.effectManager.render(ctx, this.camera);
-    }
-
-    // Draw attack range overlay if needed
+    // === Range overlays (BEHIND units) ===
+    // Attack/magic range overlay
     if (this.actionSystem.state === ActionState.SELECT_ATTACK_TARGET ||
       this.actionSystem.state === ActionState.SELECT_MAGIC_TARGET) {
       if (this.battle.selectedHero) {
         this.drawAttackRangeOverlay(this.battle.selectedHero, ctx);
       }
     }
-    // Gambar overlay hex range untuk enemy yang sedang aktif (di bawah unit)
+    // Enemy hex range overlay during enemy turn
     if (this.turnPhase === 'enemy' && this.enemyTurnProcessing && this.currentEnemyIndex < this.battle.enemies.length) {
-      let enemy = this.battle.enemies[this.currentEnemyIndex];
-      if (enemy.showHexRange) {
+      const enemy = this.battle.enemies[this.currentEnemyIndex];
+      if (enemy && enemy.showHexRange) {
         this.drawEnemyHexRange(enemy, ctx);
       }
     }
 
-    // Gambar selected indicator untuk enemy
-    this.battle.enemies.forEach(enemy => {
-      if (enemy.selected) {
-        const pos = this.grid.getCellPosition(enemy.col, enemy.row);
-        if (this.selectedIndicator.complete && this.selectedIndicator.naturalWidth > 0) {
-          ctx.drawImage(
-            this.selectedIndicator,
-            pos.x - this.camera.x,
-            pos.y - this.camera.y,
-            this.grid.tileSize,
-            this.grid.tileSize
-          );
-        }
-      }
-    });
-
+    // === Battle (selection indicators + units) ===
     this.battle.render(ctx, this.camera);
+
+    // === Effects (clouds/rain — above units, below popups) ===
+    if (this.effectManager) {
+      this.effectManager.render(ctx, this.camera);
+    }
+
+    // === Damage popups & battle scene (top-most) ===
+    if (this.damagePopups) {
+      this.damagePopups.render(ctx, this.camera);
+    }
 
     if (this.battleScene && this.battleScene.active) {
       this.battleScene.render(ctx);
     }
   }
   destroy() {
+    this._destroyed = true;
+    this._clearTimers();
     if (this.cleanupInput) {
       this.cleanupInput();
     }
     if (this.effectManager) {
       this.effectManager.destroy();
     }
-    // Cleanup any static UI or other resources if needed
-    // BattleScene usually doesn't hold DOM resources but good practice to allow it
     if (this.battleScene && this.battleScene.destroy) {
-      // this.battleScene.destroy(); // BattleScene doesn't have destroy yet, but if potential future add
+      this.battleScene.destroy();
     }
+    window.gameOverlayActive = false;
   }
 }

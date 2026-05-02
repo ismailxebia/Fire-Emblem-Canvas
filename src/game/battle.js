@@ -7,6 +7,29 @@ function easeInOutQuad(t) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
+// Module-level singleton: path indicator assets (loaded once for entire app lifetime)
+let _sharedPathAssets = null;
+function getPathAssets() {
+  if (_sharedPathAssets) return _sharedPathAssets;
+  const mk = (src) => Object.assign(new Image(), { src });
+  _sharedPathAssets = {
+    start: mk('assets/Start.png'),
+    end: mk('assets/End.png'),
+    straight: mk('assets/Lurus.png'),
+    corners: {
+      '1,0_0,1': mk('assets/corner_ED.png'),
+      '-1,0_0,1': mk('assets/corner_ED.png'),
+      '0,1_1,0': mk('assets/corner_ES.png'),
+      '-1,0_0,-1': mk('assets/corner_ES.png'),
+      '0,-1_-1,0': mk('assets/corner_ED.png'),
+      '0,1_-1,0': mk('assets/corner_NW.png'),
+      '1,0_0,-1': mk('assets/corner_NW.png'),
+      '0,-1_1,0': mk('assets/corner_WN.png'),
+    },
+  };
+  return _sharedPathAssets;
+}
+
 export default class Battle {
   constructor(grid) {
     this.grid = grid;
@@ -32,7 +55,44 @@ export default class Battle {
 
     this.indicatorImage = new Image();
     this.indicatorImage.src = 'assets/Selected.png';
-    this._loadPathAssets();
+    this.pathAssets = getPathAssets();
+
+    // Cache for the active path indicator (avoid running A* every frame)
+    this._pathIndicatorCache = { key: null, path: null };
+
+    // Spatial index: "col,row" -> unit. Rebuilt lazily when stale.
+    this._spatialIndex = new Map();
+    this._spatialDirty = true;
+  }
+
+  invalidateSpatialIndex() {
+    this._spatialDirty = true;
+  }
+
+  _rebuildSpatialIndex() {
+    this._spatialIndex.clear();
+    for (const h of this.heroes) {
+      if (h.health > 0) this._spatialIndex.set(`${h.col},${h.row}`, h);
+    }
+    for (const e of this.enemies) {
+      if (e.health > 0) this._spatialIndex.set(`${e.col},${e.row}`, e);
+    }
+    this._spatialDirty = false;
+  }
+
+  getUnitAt(col, row) {
+    if (this._spatialDirty) this._rebuildSpatialIndex();
+    return this._spatialIndex.get(`${col},${row}`) || null;
+  }
+
+  getHeroAt(col, row) {
+    const u = this.getUnitAt(col, row);
+    return u && this.heroes.includes(u) ? u : null;
+  }
+
+  getEnemyAt(col, row) {
+    const u = this.getUnitAt(col, row);
+    return u && this.enemies.includes(u) ? u : null;
   }
 
   heroAttack(hero, enemy) {
@@ -44,38 +104,38 @@ export default class Battle {
     hero.actionTaken = true;
   }
 
-  _loadPathAssets() {
-    // Load sekali, self-contained
-    this.pathAssets = {
-      start: Object.assign(new Image(), { src: 'assets/Start.png' }),
-      end: Object.assign(new Image(), { src: 'assets/End.png' }),
-      straight: Object.assign(new Image(), { src: 'assets/Lurus.png' }),
-      corners: {
-        '1,0_0,1': Object.assign(new Image(), { src: 'assets/corner_ED.png' }),
-        '-1,0_0,1': Object.assign(new Image(), { src: 'assets/corner_ED.png' }),
-        '0,1_1,0': Object.assign(new Image(), { src: 'assets/corner_ES.png' }), // Udah bener
-        '-1,0_0,-1': Object.assign(new Image(), { src: 'assets/corner_ES.png' }),
-        '0,-1_-1,0': Object.assign(new Image(), { src: 'assets/corner_ED.png' }), // Udah bener
-        '0,1_-1,0': Object.assign(new Image(), { src: 'assets/corner_NW.png' }),  // Udah bener
-        '1,0_0,-1': Object.assign(new Image(), { src: 'assets/corner_NW.png' }),  // Udah bener
-        '0,-1_1,0': Object.assign(new Image(), { src: 'assets/corner_WN.png' }),  // Udah bener
-      }
-    };
-  }
-
   update(deltaTime) {
-    // Update semua heroes
+    let needsReindex = false;
+
     this.heroes.forEach(hero => {
-      if (hero.health > 0) {
+      if (hero.isDying) {
+        hero.tickDeath(deltaTime);
+      } else if (hero.health > 0) {
+        const beforeCol = hero.col, beforeRow = hero.row;
         hero.update(deltaTime, this.grid);
+        if (hero.col !== beforeCol || hero.row !== beforeRow) needsReindex = true;
       }
     });
-    // Update semua enemies
     this.enemies.forEach(enemy => {
-      if (enemy.health > 0) {
+      if (enemy.isDying) {
+        enemy.tickDeath(deltaTime);
+      } else if (enemy.health > 0) {
+        const beforeCol = enemy.col, beforeRow = enemy.row;
         enemy.update(deltaTime, this.grid);
+        if (enemy.col !== beforeCol || enemy.row !== beforeRow) needsReindex = true;
       }
     });
+
+    // Reap fully-dead units
+    const beforeHeroCount = this.heroes.length;
+    const beforeEnemyCount = this.enemies.length;
+    this.heroes = this.heroes.filter(h => !h.dead);
+    this.enemies = this.enemies.filter(e => !e.dead);
+    if (this.heroes.length !== beforeHeroCount || this.enemies.length !== beforeEnemyCount) {
+      needsReindex = true;
+    }
+
+    if (needsReindex) this._spatialDirty = true;
     // Update overlay progress: naik jika mode move aktif, turun jika tidak.
     if (this.actionMode === 'move') {
       this.hexOverlayProgress = Math.min(this.hexOverlayProgress + deltaTime / 300, 1);
@@ -195,54 +255,67 @@ export default class Battle {
         }
       }
 
-      // Path Indicator only when active
+      // Path Indicator only when active — cache path until destination changes
       if (this.actionMode === 'move' && this.pendingMove?.newPosition) {
-        const path = this.findPath(this.grid,
-          this.pendingMove.originalPosition,
-          this.pendingMove.newPosition,
-          this.pendingMove.hero.movementRange
-        );
-        PathIndicator.render(ctx, camera, this.grid, path, this.pathAssets);
+        const np = this.pendingMove.newPosition;
+        const op = this.pendingMove.originalPosition;
+        const hero = this.pendingMove.hero;
+        const key = `${op.col},${op.row}->${np.col},${np.row}|${hero.movementRange}`;
+        if (this._pathIndicatorCache.key !== key) {
+          this._pathIndicatorCache.path = this.findPath(
+            this.grid, op, np, hero.movementRange
+          );
+          this._pathIndicatorCache.key = key;
+        }
+        PathIndicator.render(ctx, camera, this.grid, this._pathIndicatorCache.path, this.pathAssets);
+      } else {
+        this._pathIndicatorCache.key = null;
       }
     }
 
-    // --- Render Heroes ---
+    // --- Render Selection Indicators (BEHIND units) ---
+    if (this.indicatorImage.complete && this.indicatorImage.naturalWidth > 0) {
+      // Hero selection indicator
+      if (this.selectedHero && this.game.turnPhase === 'hero') {
+        let targetCol = this.selectedHero.col;
+        let targetRow = this.selectedHero.row;
+        if (this.actionMode === 'move' && this.pendingMove) {
+          targetCol = this.pendingMove.originalPosition.col;
+          targetRow = this.pendingMove.originalPosition.row;
+        }
+        const pos = this.grid.getCellPosition(targetCol, targetRow);
+        ctx.drawImage(
+          this.indicatorImage,
+          pos.x - camera.x, pos.y - camera.y,
+          this.grid.tileSize, this.grid.tileSize
+        );
+      }
+
+      // Enemy selection indicator (any enemy with .selected)
+      for (const enemy of this.enemies) {
+        if (!enemy.selected || enemy.health <= 0) continue;
+        const pos = this.grid.getCellPosition(enemy.col, enemy.row);
+        ctx.drawImage(
+          this.indicatorImage,
+          pos.x - camera.x, pos.y - camera.y,
+          this.grid.tileSize, this.grid.tileSize
+        );
+      }
+    }
+
+    // --- Render Heroes (sorted by Y for depth) ---
     this.heroes.sort((a, b) => a.pixelY - b.pixelY);
     this.heroes.forEach(hero => {
-      if (hero.health > 0) {
+      if (hero.health > 0 || hero.isDying) {
         hero.render(ctx, this.grid, camera);
       }
     });
 
     // --- Render Enemies ---
     this.enemies.forEach(enemy => {
-      if (enemy.health > 0) {
+      if (enemy.health > 0 || enemy.isDying) {
         enemy.render(ctx, this.grid, camera);
       }
     });
-
-    // --- Render Indikator Seleksi Hero ---
-    // --- Render Indikator Seleksi Hero ---
-    if (this.selectedHero && this.game.turnPhase === 'hero') {
-      // If moving, show indicator at ORIGINAL position to indicate start point
-      let targetCol = this.selectedHero.col;
-      let targetRow = this.selectedHero.row;
-
-      if (this.actionMode === 'move' && this.pendingMove) {
-        targetCol = this.pendingMove.originalPosition.col;
-        targetRow = this.pendingMove.originalPosition.row;
-      }
-
-      const pos = this.grid.getCellPosition(targetCol, targetRow);
-      ctx.save();
-      ctx.drawImage(
-        this.indicatorImage,
-        pos.x - camera.x,
-        pos.y - camera.y,
-        this.grid.tileSize,
-        this.grid.tileSize
-      );
-      ctx.restore();
-    }
   }
 }

@@ -1,66 +1,66 @@
-
 /**
  * A* Pathfinding implementation for the grid.
+ * Uses Map-based open/closed sets for O(1) lookups instead of Array.find scans.
  */
+const DIRS = [
+  { dc: 0, dr: -1 },
+  { dc: 0, dr: 1 },
+  { dc: -1, dr: 0 },
+  { dc: 1, dr: 0 },
+];
+
+const key = (col, row) => col * 10000 + row;
+
 export class Pathfinder {
   static heuristic(a, b) {
     return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
   }
 
-  static isValid(col, row, grid, obstacles, units, start, maxRange) {
-    if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return false;
-
-    // Check obstacles
-    if (obstacles && obstacles.some(o => o.col === col && o.row === row)) return false;
-
-    // Check units (enemies or other heroes depending on context)
-    if (units && units.some(u => u.col === col && u.row === row)) return false;
-
-    const rangeFromStart = Math.abs(col - start.col) + Math.abs(row - start.row);
-    if (rangeFromStart > maxRange) return false;
-
-    return true;
-  }
-
-  static getNeighbors(node, grid, obstacles, units, start, maxRange) {
-    const neighbors = [];
-    const directions = [
-      { dc: 0, dr: -1 },
-      { dc: 0, dr: 1 },
-      { dc: -1, dr: 0 },
-      { dc: 1, dr: 0 }
-    ];
-
-    directions.forEach(d => {
-      const newCol = node.col + d.dc;
-      const newRow = node.row + d.dr;
-      if (this.isValid(newCol, newRow, grid, obstacles, units, start, maxRange)) {
-        neighbors.push({ col: newCol, row: newRow });
-      }
-    });
-
-    return neighbors;
-  }
-
   static findPath(grid, start, goal, maxRange, obstacles = [], units = []) {
-    const createNode = (col, row, g, h, parent) => ({ col, row, g, h, f: g + h, parent });
+    const startK = key(start.col, start.row);
+    const goalK = key(goal.col, goal.row);
 
-    const startNode = createNode(start.col, start.row, 0, this.heuristic(start, goal), null);
-    const openSet = [startNode];
-    const closedSet = [];
+    // Build occupancy set once per call (excludes start, includes goal so we can step on it
+    // unless it's blocked — original behavior already filtered units anyway).
+    const blocked = new Set();
+    if (obstacles) {
+      for (const o of obstacles) blocked.add(key(o.col, o.row));
+    }
+    if (units) {
+      for (const u of units) {
+        const k = key(u.col, u.row);
+        if (k !== startK) blocked.add(k);
+      }
+    }
 
-    while (openSet.length > 0) {
-      let currentIndex = 0;
-      for (let i = 1; i < openSet.length; i++) {
-        if (openSet[i].f < openSet[currentIndex].f) {
-          currentIndex = i;
+    const open = new Map(); // key -> node
+    const closed = new Set();
+
+    const startNode = {
+      col: start.col,
+      row: start.row,
+      g: 0,
+      h: this.heuristic(start, goal),
+      f: 0,
+      parent: null,
+    };
+    startNode.f = startNode.h;
+    open.set(startK, startNode);
+
+    while (open.size > 0) {
+      // Find lowest-f node in open set
+      let current = null;
+      let currentK = null;
+      for (const [k, n] of open) {
+        if (current === null || n.f < current.f) {
+          current = n;
+          currentK = k;
         }
       }
+      open.delete(currentK);
+      closed.add(currentK);
 
-      const current = openSet.splice(currentIndex, 1)[0];
-      closedSet.push(current);
-
-      if (current.col === goal.col && current.row === goal.row) {
+      if (currentK === goalK) {
         const path = [];
         let temp = current;
         while (temp !== null) {
@@ -70,27 +70,37 @@ export class Pathfinder {
         return path.reverse();
       }
 
-      const neighbors = this.getNeighbors(current, grid, obstacles, units, start, maxRange);
-      for (const neighbor of neighbors) {
-        if (closedSet.find(n => n.col === neighbor.col && n.row === neighbor.row)) continue;
+      for (const d of DIRS) {
+        const nc = current.col + d.dc;
+        const nr = current.row + d.dr;
+        if (nc < 0 || nc >= grid.cols || nr < 0 || nr >= grid.rows) continue;
+
+        const nk = key(nc, nr);
+        if (closed.has(nk)) continue;
+        if (blocked.has(nk)) continue;
+
+        // Range constraint from start
+        const rangeFromStart = Math.abs(nc - start.col) + Math.abs(nr - start.row);
+        if (rangeFromStart > maxRange) continue;
 
         const tentativeG = current.g + 1;
         if (tentativeG > maxRange) continue;
-        let neighborNode = openSet.find(n => n.col === neighbor.col && n.row === neighbor.row);
 
-        if (!neighborNode) {
-          neighborNode = createNode(
-            neighbor.col,
-            neighbor.row,
-            tentativeG,
-            this.heuristic(neighbor, goal),
-            current
-          );
-          openSet.push(neighborNode);
-        } else if (tentativeG < neighborNode.g) {
-          neighborNode.g = tentativeG;
-          neighborNode.f = tentativeG + neighborNode.h;
-          neighborNode.parent = current;
+        const existing = open.get(nk);
+        if (!existing) {
+          const h = Math.abs(nc - goal.col) + Math.abs(nr - goal.row);
+          open.set(nk, {
+            col: nc,
+            row: nr,
+            g: tentativeG,
+            h,
+            f: tentativeG + h,
+            parent: current,
+          });
+        } else if (tentativeG < existing.g) {
+          existing.g = tentativeG;
+          existing.f = tentativeG + existing.h;
+          existing.parent = current;
         }
       }
     }

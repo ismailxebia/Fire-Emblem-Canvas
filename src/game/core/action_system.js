@@ -1,5 +1,7 @@
 
 import { updateProfileStatus } from '../ui.js';
+import { Haptics, ImpactStyle } from '../utils/haptics.js';
+import { positionMenuNearUnitDeferred } from '../utils/menuPosition.js';
 
 export const ActionState = {
     IDLE: 'IDLE',
@@ -24,11 +26,44 @@ export class ActionSystem {
         this.selectedHero = null;
         this.pendingMove = null;
         this.game.battle.selectedHero = null;
+        this.game.battle.pendingMove = null;
         this.game.battle.actionMode = 'normal';
         this.game.attackMode = false;
         this.game.attackType = null;
 
+        // Clear stale overlay caches so they don't linger across turns
+        this.game.battle.lastMoveData = null;
+        this.game.battle.hexOverlayProgress = 0;
+        this.game.battle._cachedMovePaths = null;
+        this.game.battle._lastPendingMove = null;
+        if (this.game.battle._pathIndicatorCache) {
+            this.game.battle._pathIndicatorCache.key = null;
+            this.game.battle._pathIndicatorCache.path = null;
+        }
+
+        // Clear unit-level selection flags
+        this.game.battle.heroes.forEach(h => { h.selected = false; });
+        this.game.battle.enemies.forEach(e => {
+            e.selected = false;
+            e.showHexRange = false;
+        });
+
+        // Clamp camera in case canvas resized while overlay was open
+        this._clampCamera();
+
         this.updateUI();
+    }
+
+    _clampCamera() {
+        const cam = this.game.camera;
+        const canvas = this.game.canvas;
+        const grid = this.game.grid;
+        const logicalWidth = canvas.clientWidth || canvas.width;
+        const logicalHeight = canvas.clientHeight || canvas.height;
+        const maxX = Math.max(0, grid.stageWidth - logicalWidth);
+        const maxY = Math.max(0, grid.stageHeight - logicalHeight);
+        cam.x = Math.max(0, Math.min(cam.x, maxX));
+        cam.y = Math.max(0, Math.min(cam.y, maxY));
     }
 
     // Called when a tile is clicked
@@ -98,28 +133,30 @@ export class ActionSystem {
     }
 
     selectHero(hero, readonly = false) {
-        console.log('[ACTION] selectHero called:', hero.name, 'readonly:', readonly);
         this.selectedHero = hero;
         this.game.battle.selectedHero = hero;
+        // Clear any enemy selection so we don't show two selectors
+        this.game.battle.enemies.forEach(e => { e.selected = false; });
         updateProfileStatus(hero);
 
         if (readonly) {
-            this.state = ActionState.IDLE; // Or a specific READONLY state
+            this.state = ActionState.IDLE;
             this.game.battle.actionMode = 'normal';
             this.hideAllMenus();
         } else {
             this.state = ActionState.HERO_SELECTED;
             this.game.battle.actionMode = 'selected';
-            console.log('[ACTION] About to show action menu');
             this.showActionMenu();
         }
     }
 
     selectEnemy(enemy) {
-        // Just show info for now
-        updateProfileStatus(enemy);
-        this.game.battle.enemies.forEach(e => e.selected = false);
+        // Clear any hero selection so we don't show two selectors
+        this.selectedHero = null;
+        this.game.battle.selectedHero = null;
+        this.game.battle.enemies.forEach(e => { e.selected = false; });
         enemy.selected = true;
+        updateProfileStatus(enemy);
         this.game.battle.actionMode = 'enemySelected';
     }
 
@@ -140,18 +177,17 @@ export class ActionSystem {
     showCancelOnlyMenu() {
         const menu = document.getElementById('confirmMenu');
         if (menu) {
-            menu.style.display = 'flex'; // Use flex as per CSS
-            // Hide others
+            menu.style.display = 'flex';
             const btnAttack = document.getElementById('btnAttackConfirm');
             if (btnAttack) btnAttack.style.display = 'none';
             const btnMagic = document.getElementById('btnMagicConfirm');
             if (btnMagic) btnMagic.style.display = 'none';
             const btnConfirm = document.getElementById('btnConfirm');
             if (btnConfirm) btnConfirm.style.display = 'none';
-
-            // Show Cancel
             const btnCancel = document.getElementById('btnCancel');
-            if (btnCancel) btnCancel.style.display = 'block';
+            if (btnCancel) btnCancel.style.display = 'flex';
+
+            positionMenuNearUnitDeferred('confirmMenu', this.selectedHero, this.game);
         }
         this.hideActionMenu();
     }
@@ -215,10 +251,11 @@ export class ActionSystem {
         // Show cancel button only (or back)
         const confirmMenu = document.getElementById('confirmMenu');
         if (confirmMenu) {
-            confirmMenu.style.display = 'block';
+            confirmMenu.style.display = 'flex';
             document.getElementById('btnAttackConfirm').style.display = 'none';
             document.getElementById('btnConfirm').style.display = 'none';
-            document.getElementById('btnCancel').style.display = 'inline-block';
+            document.getElementById('btnMagicConfirm').style.display = 'none';
+            document.getElementById('btnCancel').style.display = 'flex';
         }
     }
 
@@ -264,42 +301,58 @@ export class ActionSystem {
         // Trigger Battle Scene
         this.hideAllMenus();
         this.game.battleScene.start(hero, target, damage, counterDamage, () => {
-            // Apply damage after animation
             target.health = Math.max(0, target.health - damage);
-            console.log(`${hero.name} attacks ${target.name} for ${damage} damage!`);
+            this._spawnDamagePopup(target, damage);
+            Haptics.impact(damage > 0 ? ImpactStyle.Medium : ImpactStyle.Light);
 
-            // Apply counter damage if enemy survived
             if (counterDamage !== null && target.health > 0) {
                 hero.health = Math.max(0, hero.health - counterDamage);
-                console.log(`${target.name} counters ${hero.name} for ${counterDamage} damage!`);
+                this._spawnDamagePopup(hero, counterDamage, { delay: 350 });
             }
 
-            // Update HUD
             updateProfileStatus(hero);
             updateProfileStatus(target);
 
-            // Remove dead units from battlefield
             if (target.health <= 0) {
-                console.log(`${target.name} has been defeated!`);
-                // Remove from enemies array
-                const index = this.game.battle.enemies.indexOf(target);
-                if (index > -1) {
-                    this.game.battle.enemies.splice(index, 1);
-                }
+                Haptics.impact(ImpactStyle.Heavy);
+                target.startDeath();
+                this.game.battle.invalidateSpatialIndex();
             }
 
             if (hero.health <= 0) {
-                console.log(`${hero.name} has been defeated!`);
-                // Remove from heroes array
-                const index = this.game.battle.heroes.indexOf(hero);
-                if (index > -1) {
-                    this.game.battle.heroes.splice(index, 1);
-                }
+                Haptics.impact(ImpactStyle.Heavy);
+                hero.startDeath();
+                this.game.battle.invalidateSpatialIndex();
             }
 
-            // Mark action taken
             this.finalizeAction();
         });
+    }
+
+    _spawnDamagePopup(unit, damage, opts = {}) {
+        if (!this.game.damagePopups) return;
+        const cell = this.game.grid.getCellPosition(unit.col, unit.row);
+        const x = cell.x + this.game.grid.tileSize / 2;
+        const y = cell.y;
+        const fire = () => {
+            const value = damage === 0 ? 'MISS' : damage;
+            this.game.damagePopups.spawn(x, y, value, {
+                color: damage === 0 ? '#ddd' : (this.game.battle.heroes.includes(unit) ? '#ff5252' : '#ffd54f'),
+            });
+        };
+        if (opts.delay) {
+            this.game._setTimeout?.(fire, opts.delay) ?? setTimeout(fire, opts.delay);
+        } else {
+            fire();
+        }
+    }
+
+    cancelCurrent() {
+        if (this.game.turnPhase !== 'hero') return false;
+        if (this.state === ActionState.IDLE) return false;
+        this.reset();
+        Haptics.impact(ImpactStyle.Light);
+        return true;
     }
 
     executeEnemyAttack(attacker, defender, onComplete) {
@@ -331,38 +384,30 @@ export class ActionSystem {
         // Turn 2: Defender (Hero/Left) -> Receiver (Enemy/Right).
         // This logic in BattleScene seems robust enough.
 
-        this.hideAllMenus(); // Just in case
+        this.hideAllMenus();
         this.game.battleScene.start(attacker, defender, damage, counterDamage, () => {
-            // Apply damage
             defender.health = Math.max(0, defender.health - damage);
-            console.log(`${attacker.name} attacks ${defender.name} for ${damage} damage!`);
+            this._spawnDamagePopup(defender, damage);
+            Haptics.impact(damage > 0 ? ImpactStyle.Medium : ImpactStyle.Light);
 
             if (counterDamage !== null && defender.health > 0) {
                 attacker.health = Math.max(0, attacker.health - counterDamage);
-                console.log(`${defender.name} counters ${attacker.name} for ${counterDamage} damage!`);
+                this._spawnDamagePopup(attacker, counterDamage, { delay: 350 });
             }
 
-            // Update HUD
             updateProfileStatus(attacker);
             updateProfileStatus(defender);
 
-            // Remove dead units from battlefield
             if (defender.health <= 0) {
-                console.log(`${defender.name} has been defeated!`);
-                // Remove from heroes array (defender is usually hero in enemy attack)
-                const index = this.game.battle.heroes.indexOf(defender);
-                if (index > -1) {
-                    this.game.battle.heroes.splice(index, 1);
-                }
+                Haptics.impact(ImpactStyle.Heavy);
+                defender.startDeath();
+                this.game.battle.invalidateSpatialIndex();
             }
 
             if (attacker.health <= 0) {
-                console.log(`${attacker.name} has been defeated!`);
-                // Remove from enemies array (attacker is enemy in enemy attack)
-                const index = this.game.battle.enemies.indexOf(attacker);
-                if (index > -1) {
-                    this.game.battle.enemies.splice(index, 1);
-                }
+                Haptics.impact(ImpactStyle.Heavy);
+                attacker.startDeath();
+                this.game.battle.invalidateSpatialIndex();
             }
 
             if (onComplete) onComplete();
@@ -406,22 +451,17 @@ export class ActionSystem {
 
     // Helpers
     getUnitAt(col, row) {
-        return this.game.battle.heroes.find(h => h.col === col && h.row === row) ||
-            this.game.battle.enemies.find(e => e.col === col && e.row === row);
+        return this.game.battle.getUnitAt(col, row);
     }
 
     showActionMenu() {
-        console.log('[ACTION] showActionMenu called');
         const menu = document.getElementById('actionMenu');
-        console.log('[ACTION] actionMenu element:', menu);
         if (menu) {
             menu.style.display = 'flex';
-            console.log('[ACTION] Set display to flex');
+            this.updateActionButtons();
+            positionMenuNearUnitDeferred('actionMenu', this.selectedHero, this.game);
         }
         this.hideConfirmMenu();
-
-        // Update buttons based on context (e.g. can attack?)
-        this.updateActionButtons();
     }
 
     updateActionButtons() {
@@ -442,23 +482,21 @@ export class ActionSystem {
             }
         }
 
-        if (btnAttack) btnAttack.style.display = canAttack ? 'block' : 'none';
-        if (btnMagic) btnMagic.style.display = canAttack ? 'block' : 'none'; // Assuming magic has same range for now
+        if (btnAttack) btnAttack.style.display = canAttack ? 'flex' : 'none';
+        if (btnMagic) btnMagic.style.display = canAttack ? 'flex' : 'none';
     }
 
     showConfirmMenu() {
         const menu = document.getElementById('confirmMenu');
         if (menu) {
-            menu.style.display = 'block';
-            // Show Wait and Cancel
-            document.getElementById('btnConfirm').style.display = 'inline-block'; // Re-purposed as Wait
+            menu.style.display = 'flex';
+            document.getElementById('btnConfirm').style.display = 'flex';
             document.getElementById('btnConfirm').textContent = 'Wait';
-            document.getElementById('btnCancel').style.display = 'inline-block';
+            document.getElementById('btnCancel').style.display = 'flex';
 
             // Check if can attack from new position
             let canAttack = false;
             const hero = this.selectedHero;
-            // Use pending new position if available, otherwise current position
             const currentPos = this.game.battle.pendingMove ? this.game.battle.pendingMove.newPosition : { col: hero.col, row: hero.row };
 
             for (const enemy of this.game.battle.enemies) {
@@ -472,13 +510,15 @@ export class ActionSystem {
 
             const btnAttackConfirm = document.getElementById('btnAttackConfirm');
             if (btnAttackConfirm) {
-                btnAttackConfirm.style.display = canAttack ? 'inline-block' : 'none';
+                btnAttackConfirm.style.display = canAttack ? 'flex' : 'none';
             }
 
             const btnMagicConfirm = document.getElementById('btnMagicConfirm');
             if (btnMagicConfirm) {
-                btnMagicConfirm.style.display = canAttack ? 'inline-block' : 'none';
+                btnMagicConfirm.style.display = canAttack ? 'flex' : 'none';
             }
+
+            positionMenuNearUnitDeferred('confirmMenu', this.selectedHero, this.game);
         }
         this.hideActionMenu();
     }

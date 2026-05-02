@@ -148,15 +148,27 @@ export class Enemy extends Unit {
       const config = ACTION_CONFIG[this.currentAction] || ACTION_CONFIG.idle;
       const rowIndex = config.row;
       const desiredHeight = grid.tileSize * 1.2;
-      const scale = desiredHeight / FRAME_HEIGHT;
-      const imgHeight = FRAME_HEIGHT * scale;
-      const imgWidth = FRAME_WIDTH * scale;
+      const baseScale = desiredHeight / FRAME_HEIGHT;
       const sourceX = this.frameIndex * FRAME_WIDTH;
       const sourceY = rowIndex * FRAME_HEIGHT;
+
+      const dp = this.deathProgress;
+      const dyingScale = this.isDying ? (1 + dp * 0.25) : 1;
+      const dyingLift = this.isDying ? -dp * 18 : 0;
+      const dyingAlpha = this.isDying ? Math.max(0, 1 - dp) : 1;
+
+      const imgHeight = FRAME_HEIGHT * baseScale * dyingScale;
+      const imgWidth = FRAME_WIDTH * baseScale * dyingScale;
       const drawX = cellCenterX - imgWidth / 2;
-      const drawY = cellBottomY - imgHeight;
+      const drawY = cellBottomY - imgHeight + dyingLift;
+
       let prevFilter = ctx.filter;
-      if (this.actionTaken) {
+      let prevAlpha = ctx.globalAlpha;
+      if (this.isDying) {
+        const flash = dp < 0.4 ? (dp / 0.4) : (1 - (dp - 0.4) / 0.6);
+        ctx.filter = `brightness(${1 + flash * 1.4}) saturate(${1 + flash * 0.5})`;
+        ctx.globalAlpha = dyingAlpha;
+      } else if (this.actionTaken) {
         ctx.filter = "grayscale(100%)";
       }
       ctx.drawImage(
@@ -165,6 +177,7 @@ export class Enemy extends Unit {
         drawX, drawY, imgWidth, imgHeight
       );
       ctx.filter = prevFilter;
+      ctx.globalAlpha = prevAlpha;
     } else {
       ctx.fillStyle = 'red';
       ctx.fillRect(pos.x - camera.x, pos.y - camera.y, grid.tileSize, grid.tileSize);

@@ -1,13 +1,29 @@
-/* Reset dasar */
+/* ===========================================================
+   Fire Emblem Canvas — Octopath-inspired UI
+   Palette:  ink #0d1320  |  panel #141a2a  |  gold #c9a96e
+   =========================================================== */
+
+:root {
+    --octo-ink: #0d1320;
+    --octo-panel: #141a2a;
+    --octo-panel-2: #1c2438;
+    --octo-line: rgba(201, 169, 110, 0.55);
+    --octo-line-soft: rgba(201, 169, 110, 0.18);
+    --octo-gold: #d8b86a;
+    --octo-gold-bright: #f0d27c;
+    --octo-text: #e9e4d4;
+    --octo-text-soft: #b3aa92;
+    --octo-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     font-family: "Jersey 20", serif;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* Pastikan HTML dan body memenuhi layar */
-/* Pastikan HTML dan body memenuhi layar */
 html,
 body,
 #root,
@@ -17,33 +33,29 @@ body,
     margin: 0;
     padding: 0;
     overflow: hidden;
-    /* Prevent page scroll */
     font-family: "Jersey 20", serif;
     display: flex;
     flex-direction: column;
+    background: #000;
 }
 
-
-/* Container untuk canvas */
+/* === Canvas === */
 #canvasContainer {
     position: relative;
     overflow: hidden;
-    /* nonaktifkan native scrolling; kita pakai drag */
     -webkit-overflow-scrolling: touch;
     margin: 0;
     padding: 0;
     flex: 1;
-    /* Take remaining space */
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-/* Styling untuk canvas */
 #gameCanvas {
     display: block;
     width: 100%;
-    background-color: #ffffff;
+    background-color: #0a0d14;
     touch-action: none;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
@@ -51,92 +63,105 @@ body,
     -webkit-image-rendering: pixelated;
 }
 
-/* --- Penyesuaian umum di status container --- */
-/* --- Penyesuaian umum di status container --- */
+/* ===========================================================
+   STATUS HUD (top bar) — Octopath dark plate
+   =========================================================== */
 #statusContainer {
     width: 100%;
-    background: #F2F0E6;
-    /* Cream/Beige background like FFBE */
-    color: #333;
+    background:
+        linear-gradient(180deg, var(--octo-panel) 0%, var(--octo-ink) 100%);
+    color: var(--octo-text);
 
-    /* Handle status bar / notch */
-    padding-top: calc(env(safe-area-inset-top) + 8px);
-    padding-left: calc(env(safe-area-inset-left) + 12px);
-    padding-right: calc(env(safe-area-inset-right) + 12px);
-    padding-bottom: 8px;
+    padding-top: calc(env(safe-area-inset-top) + 10px);
+    padding-left: calc(env(safe-area-inset-left) + 14px);
+    padding-right: calc(env(safe-area-inset-right) + 14px);
+    padding-bottom: 12px;
 
     position: relative;
-    image-rendering: pixelated;
     z-index: 1000;
-    border-bottom: 4px solid #D6CDB6;
-    /* Depth border */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid var(--octo-line);
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
     flex: 0 0 auto;
-    /* Don't grow, don't shrink */
 }
 
-/* Layout profile status */
+/* Subtle gold top accent strip (Octopath signature) */
+#statusContainer::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            var(--octo-gold) 30%,
+            var(--octo-gold-bright) 50%,
+            var(--octo-gold) 70%,
+            transparent 100%);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
 #profileStatus {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 12px;
     max-width: 600px;
-    /* Limit width for cleaner look on desktop */
     margin: 0 auto;
-    /* Center it */
 }
 
-/* --- Portrait + Level Tag --- */
+/* === Portrait === */
 .portrait {
     position: relative;
     flex: 0 0 auto;
-    width: 68px;
-    /* Smaller, square */
-    height: 68px;
+    width: 64px;
+    height: 64px;
     padding: 0;
-    border-radius: 12px;
-    background: #fff;
-    border: 3px solid #fff;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    background: var(--octo-panel-2);
+    border: 1px solid var(--octo-line);
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
 .portrait img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 9px;
-    /* Match parent minus border */
+    border-radius: 5px;
     image-rendering: pixelated;
 }
 
-/* Level Tag */
 .levelTag {
     position: absolute;
-    top: -4px;
-    left: -4px;
-    background: #2C2C2C;
-    color: #fff;
-    padding: 2px 6px;
-    font-size: 0.8em;
-    font-weight: bold;
-    border-radius: 6px 0 6px 0;
-    border: 2px solid #fff;
+    top: -6px;
+    left: -6px;
+    background: var(--octo-ink);
+    color: var(--octo-gold-bright);
+    padding: 2px 7px;
+    font-size: 0.78em;
+    font-weight: 900;
+    border-radius: 3px;
+    border: 1px solid var(--octo-gold);
     z-index: 2;
-    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 0 #000;
 }
 
-/* --- Info Container --- */
 .infoContainer {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    /* Tighter gap */
+    gap: 4px;
     flex: 1;
     justify-content: center;
+    min-width: 0;
 }
 
-/* Nama + Star Rating */
 .nameStars {
     display: flex;
     flex-direction: row;
@@ -145,25 +170,24 @@ body,
     margin-bottom: 2px;
 }
 
-/* Efek outline teks */
+/* Reset old white text-stroke effect */
 .textStroke {
-    color: #222;
-    text-shadow:
-        -2px -2px 0 #FFF,
-        2px -2px 0 #FFF,
-        -2px 2px 0 #FFF,
-        2px 2px 0 #FFF;
+    color: var(--octo-text);
+    text-shadow: 0 1px 0 #000, 0 0 12px rgba(0, 0, 0, 0.6);
 }
 
-/* Nama hero */
 .heroName {
-    font-size: 1.4em;
-    color: #000;
-    font-weight: 900;
-    letter-spacing: 0.5px;
+    font-size: 1.35em;
+    color: var(--octo-text);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 0 #000;
 }
 
-/* Bintang */
 .stars {
     display: flex;
     flex-direction: row;
@@ -171,17 +195,17 @@ body,
 }
 
 .star {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
     image-rendering: pixelated;
 }
 
 .star.off {
-    opacity: 0.2;
+    opacity: 0.25;
     filter: grayscale(100%);
 }
 
-/* HP Bar Container */
+/* === HP === */
 .hpBarContainer {
     display: flex;
     align-items: center;
@@ -189,36 +213,36 @@ body,
     margin-bottom: 4px;
 }
 
-/* HP Label */
 .hpLabel {
-    font-weight: 900;
-    color: #222;
-    font-size: 1em;
-    text-shadow: 1px 1px 0 #fff;
+    font-weight: 700;
+    color: var(--octo-gold);
+    font-size: 0.95em;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 0 #000;
 }
 
-/* HP Bar */
 .hpBar {
     position: relative;
     flex: 1;
-    height: 14px;
-    background-color: #DCD9CD;
-    border-radius: 4px;
-    border: 2px solid #fff;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    height: 12px;
+    background-color: rgba(0, 0, 0, 0.55);
+    border-radius: 2px;
+    border: 1px solid var(--octo-line);
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(0, 0, 0, 0.4);
     overflow: hidden;
     clip-path: none;
-    /* Removed polygon for cleaner rounded look */
 }
 
-/* HP Fill */
 .hpFill {
     position: relative;
     width: 70%;
     height: 100%;
-    background: linear-gradient(90deg, #D35400, #F39C12);
-    /* Orange gradient */
-    border-radius: 2px;
+    background: linear-gradient(180deg, #5fd070 0%, #2c8c3e 100%);
+    border-radius: 1px;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 8px rgba(95, 208, 112, 0.4);
 }
 
 .hpFill::after {
@@ -226,47 +250,49 @@ body,
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    /* Diagonal stripes pattern */
-    background: repeating-linear-gradient(45deg,
-            rgba(255, 255, 255, 0.15),
-            rgba(255, 255, 255, 0.15) 4px,
-            transparent 4px,
-            transparent 8px);
+    right: 0;
+    height: 40%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent);
     pointer-events: none;
 }
 
-/* HP Value */
 .hpValue {
-    font-weight: bold;
-    font-size: 1.1em;
-    color: #222;
-    text-shadow: 1px 1px 0 #fff;
+    font-weight: 700;
+    font-size: 1em;
+    color: var(--octo-text);
+    text-shadow: 0 1px 0 #000;
+    min-width: 50px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Attributes (ATK, DEF, SPD, RES) */
+/* === Stat chips === */
 .attributes {
     display: flex;
     justify-content: flex-start;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 
 .attributes .stat {
     padding: 3px 10px;
-    background: #E6E4D9;
-    font-size: 0.85em;
-    font-weight: bold;
-    color: #555;
-    border-radius: 10px;
-    border: 1px solid #D6D3C5;
-    box-shadow: 0 1px 0 #fff;
+    background: rgba(0, 0, 0, 0.4);
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--octo-text-soft);
+    border-radius: 2px;
+    border: 1px solid var(--octo-line-soft);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     min-width: 60px;
     text-align: center;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 0 #000;
 }
 
-/* Turn Overlay - Advanced Animation */
+/* ===========================================================
+   TURN OVERLAY (battle / turn banner)
+   =========================================================== */
 #turnOverlay {
     position: fixed;
     top: 0;
@@ -282,22 +308,23 @@ body,
     display: block;
 }
 
-/* Split Banners */
 .turnBannerLeft,
 .turnBannerRight {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    height: 120px;
+    height: 110px;
     width: 60%;
-    background: linear-gradient(90deg,
-            rgba(20, 20, 20, 0.95) 0%,
-            rgba(40, 40, 40, 0.98) 50%,
-            rgba(20, 20, 20, 0.95) 100%);
-    border: 3px solid #d4af37;
+    background:
+        linear-gradient(180deg,
+            rgba(13, 19, 32, 0.96) 0%,
+            rgba(28, 36, 56, 0.96) 50%,
+            rgba(13, 19, 32, 0.96) 100%);
+    border-top: 1px solid var(--octo-gold);
+    border-bottom: 1px solid var(--octo-gold);
     box-shadow:
-        0 0 30px rgba(212, 175, 55, 0.6),
-        inset 0 0 20px rgba(212, 175, 55, 0.2);
+        0 0 24px rgba(0, 0, 0, 0.6),
+        inset 0 0 30px rgba(216, 184, 106, 0.1);
     opacity: 0;
 }
 
@@ -312,11 +339,11 @@ body,
 }
 
 #turnOverlay.active .turnBannerLeft {
-    animation: slideInLeft 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: slideInLeft 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 #turnOverlay.active .turnBannerRight {
-    animation: slideInRight 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: slideInRight 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes slideInLeft {
@@ -333,7 +360,6 @@ body,
     }
 }
 
-/* Turn Text */
 .turnContent {
     position: absolute;
     top: 50%;
@@ -344,22 +370,21 @@ body,
 
 .turnText {
     font-family: 'Jersey 20', cursive;
-    font-size: clamp(2.5rem, 8vw, 5rem);
-    font-weight: bold;
-    color: #fff;
+    font-size: clamp(2.4rem, 8vw, 4.8rem);
+    font-weight: 700;
+    color: var(--octo-text);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.18em;
     text-shadow:
-        0 0 10px rgba(212, 175, 55, 0.8),
-        0 0 20px rgba(212, 175, 55, 0.6),
-        0 0 30px rgba(212, 175, 55, 0.4),
-        2px 2px 4px rgba(0, 0, 0, 0.8);
+        0 0 12px rgba(216, 184, 106, 0.7),
+        0 0 24px rgba(216, 184, 106, 0.4),
+        2px 2px 4px rgba(0, 0, 0, 0.9);
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.6);
 }
 
 #turnOverlay.active .turnText {
-    animation: textAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+    animation: textAppear 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s forwards;
 }
 
 @keyframes textAppear {
@@ -369,17 +394,16 @@ body,
     }
 }
 
-/* Fade out animation */
 #turnOverlay.fadeOut .turnBannerLeft {
-    animation: slideOutLeft 0.5s ease-in forwards;
+    animation: slideOutLeft 0.45s ease-in forwards;
 }
 
 #turnOverlay.fadeOut .turnBannerRight {
-    animation: slideOutRight 0.5s ease-in forwards;
+    animation: slideOutRight 0.45s ease-in forwards;
 }
 
 #turnOverlay.fadeOut .turnText {
-    animation: textDisappear 0.5s ease-in forwards;
+    animation: textDisappear 0.45s ease-in forwards;
 }
 
 @keyframes slideOutLeft {
@@ -399,110 +423,197 @@ body,
 @keyframes textDisappear {
     to {
         opacity: 0;
-        transform: scale(1.2);
+        transform: scale(1.15);
     }
 }
 
-/* --- Brigandine Style Action Menus --- */
-
+/* ===========================================================
+   ACTION & CONFIRM MENUS — Octopath command panel
+   =========================================================== */
 #actionMenu,
 #confirmMenu {
-    /* Override inline styles */
-    background: linear-gradient(180deg, #3d3d3d 0%, #2b2b2b 100%) !important;
-    border: 2px solid #c4a05f !important;
-    border-radius: 8px !important;
-    padding: 8px 0 !important;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5) !important;
-    min-width: 140px;
+    background:
+        linear-gradient(180deg, var(--octo-panel) 0%, var(--octo-ink) 100%) !important;
+    border: 1px solid var(--octo-line) !important;
+    border-radius: 4px !important;
+    padding: 6px 0 !important;
+    box-shadow:
+        0 8px 22px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    min-width: 168px;
+    max-width: min(220px, calc(100vw - 32px));
     z-index: 1001;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    gap: 0 !important;
 
-    /* Position with safe area consideration */
     position: absolute !important;
-    left: calc(env(safe-area-inset-left) + 16px) !important;
-    top: calc(env(safe-area-inset-top) + 135px) !important;
+    /* Default fallback (overridden by JS positioning) */
+    left: 16px;
+    top: calc(env(safe-area-inset-top) + 140px);
+
+    transition: left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+
+    transform-origin: var(--menu-origin, top left);
+    animation: menuIn 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Decorative corner accents (optional, simulated with box-shadow or border-image) */
+@keyframes menuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Top gold accent strip */
 #actionMenu::before,
 #confirmMenu::before {
     content: '';
     position: absolute;
-    top: 2px;
-    left: 2px;
-    right: 2px;
-    bottom: 2px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    left: 8px;
+    right: 8px;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            var(--octo-gold) 30%,
+            var(--octo-gold-bright) 50%,
+            var(--octo-gold) 70%,
+            transparent);
+    opacity: 0.65;
     pointer-events: none;
-    border-radius: 6px;
+}
+
+/* Inner subtle frame */
+#actionMenu::after,
+#confirmMenu::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    pointer-events: none;
 }
 
 #actionMenu button,
 #confirmMenu button {
     background: transparent;
     border: none;
-    color: #e0e0e0;
+    color: var(--octo-text);
     font-family: "Jersey 20", serif;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     text-align: left;
-    padding: 8px 16px;
+    padding: 10px 16px 10px 30px;
     cursor: pointer;
     position: relative;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease, color 0.15s ease, padding-left 0.18s ease;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    text-shadow: 1px 1px 0 #000;
+    letter-spacing: 1.5px;
+    text-shadow: 0 1px 0 #000;
+    min-height: 44px;
+    white-space: nowrap;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+}
+
+#actionMenu button+button,
+#confirmMenu button+button {
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 #actionMenu button:hover,
-#confirmMenu button:hover {
-    color: #fff;
-    background: linear-gradient(90deg, rgba(196, 160, 95, 0.2) 0%, rgba(196, 160, 95, 0) 100%);
-    padding-left: 20px;
-    /* Slide effect */
-    text-shadow: 0 0 8px rgba(196, 160, 95, 0.8);
+#actionMenu button:focus-visible,
+#actionMenu button:active,
+#confirmMenu button:hover,
+#confirmMenu button:focus-visible,
+#confirmMenu button:active {
+    color: var(--octo-gold-bright);
+    background:
+        linear-gradient(90deg,
+            rgba(216, 184, 106, 0.18) 0%,
+            rgba(216, 184, 106, 0.05) 50%,
+            rgba(216, 184, 106, 0) 100%);
+    padding-left: 34px;
+    outline: none;
 }
 
-/* Active/Selected indicator (simulated) */
-#actionMenu button:hover::before,
-#confirmMenu button:hover::before {
-    content: '►';
+#actionMenu button::before,
+#confirmMenu button::before {
+    content: '◆';
     position: absolute;
-    left: 6px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #c4a05f;
-    font-size: 0.8rem;
+    color: var(--octo-line);
+    font-size: 0.6rem;
+    transition: color 0.15s ease, transform 0.15s ease;
 }
 
-/* Separator lines if needed, or just spacing */
-#actionMenu button:not(:last-child),
-#confirmMenu button:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+#actionMenu button:hover::before,
+#actionMenu button:focus-visible::before,
+#actionMenu button:active::before,
+#confirmMenu button:hover::before,
+#confirmMenu button:focus-visible::before,
+#confirmMenu button:active::before {
+    color: var(--octo-gold-bright);
+    transform: translateY(-50%) scale(1.4);
 }
 
-/* --- Loading Screen --- */
+/* Cancel-style differentiator */
+#btnCancel {
+    color: var(--octo-text-soft) !important;
+}
+
+#btnCancel:hover,
+#btnCancel:focus-visible,
+#btnCancel:active {
+    color: #f0a37c !important;
+    background:
+        linear-gradient(90deg,
+            rgba(240, 110, 90, 0.16) 0%,
+            rgba(240, 110, 90, 0) 100%) !important;
+}
+
+#btnCancel::before {
+    content: '×' !important;
+    font-size: 1.1rem !important;
+    color: rgba(240, 110, 90, 0.5) !important;
+}
+
+#btnCancel:hover::before,
+#btnCancel:focus-visible::before,
+#btnCancel:active::before {
+    color: #f0a37c !important;
+}
+
+/* ===========================================================
+   LOADING SCREEN
+   =========================================================== */
 #loadingScreen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.95) 100%);
+    background:
+        radial-gradient(circle at 30% 30%, rgba(28, 36, 56, 0.4) 0%, transparent 60%),
+        linear-gradient(to top, #000 0%, #0d1320 100%);
     z-index: 3000;
     display: flex;
     align-items: flex-end;
-    /* Align to bottom */
     justify-content: flex-start;
-    /* Align to left */
     color: #fff;
     font-family: "Trirong", serif;
-    /* Use Trirong font */
     transition: opacity 0.5s ease-out;
     padding-bottom: 64px;
-    /* Bottom margin */
 }
 
 .loadingContent {
@@ -526,22 +637,20 @@ body,
     width: 38px;
     height: 38px;
     animation: spin 3s linear infinite;
-    /* Ensure icon is white */
     filter: brightness(0) invert(1);
 }
 
 .loadingPercent {
     font-size: 16px;
-    color: #888;
+    color: var(--octo-text-soft);
     font-family: "Trirong", serif;
 }
 
 .loadingTitle {
     font-size: 20px;
-    color: #888;
+    color: var(--octo-text-soft);
     text-transform: uppercase;
     letter-spacing: 2px;
-    /* Increased letter spacing for "Battlefield #1" look */
     font-family: "Trirong", serif;
 }
 
@@ -549,7 +658,6 @@ body,
     font-size: 28px;
     color: #fff;
     font-weight: normal;
-    /* Trirong looks better normal or 400 here based on ref */
     margin-bottom: -8px;
     margin-top: -4px;
     line-height: 1.2;
@@ -558,10 +666,10 @@ body,
 
 .loadingFooter {
     font-size: 14px;
-    color: #D4AF37;
-    /* Gold color */
+    color: var(--octo-gold);
     margin-top: 12px;
     font-family: "Trirong", serif;
+    letter-spacing: 0.5px;
 }
 
 @keyframes spin {

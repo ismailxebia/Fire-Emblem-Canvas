@@ -294,20 +294,41 @@ export class BattleScene {
         ctx.save();
         ctx.translate(this.shake.x, this.shake.y);
 
+        // Compute attack lunge / knockback offsets for current turn
+        const turn = this.turns && this.turns[this.currentTurnIndex];
+        const attackerIsLeft = turn && turn.attacker === this.leftUnit;
+        const lunge = this._attackerLungeOffset();   // signed magnitude (toward target)
+        const knock = this._receiverKnockbackOffset(); // signed magnitude (away from attacker)
+
+        // Left moves +x to attack, right moves -x to attack
+        const leftAttackDX = (turn && attackerIsLeft) ? lunge : 0;
+        const rightAttackDX = (turn && !attackerIsLeft) ? -lunge : 0;
+        const leftReceiveDX = (turn && !attackerIsLeft) ? -knock : 0;
+        const rightReceiveDX = (turn && attackerIsLeft) ? knock : 0;
+
         // Units
-        // Left Unit (Hero): Faces Right (Flip to face right if sprite faces left)
-        this.renderUnit(ctx, this.leftUnit, this.leftPos.x + offsetLeft, this.leftPos.y, true);
-        // Right Unit (Enemy): Faces Left (Assuming sprite faces Left, No Flip)
-        this.renderUnit(ctx, this.rightUnit, this.rightPos.x + offsetRight, this.rightPos.y, false);
+        this.renderUnit(
+            ctx, this.leftUnit,
+            this.leftPos.x + offsetLeft + leftAttackDX + leftReceiveDX,
+            this.leftPos.y,
+            true
+        );
+        this.renderUnit(
+            ctx, this.rightUnit,
+            this.rightPos.x + offsetRight + rightAttackDX + rightReceiveDX,
+            this.rightPos.y,
+            false
+        );
 
         // Damage Number (Only in HIT phase)
         if (this.phase === 'hit') {
-            const turn = this.turns[this.currentTurnIndex];
-            const targetUnit = turn.receiver;
+            const turn2 = this.turns[this.currentTurnIndex];
+            const targetUnit = turn2.receiver;
             const targetPos = targetUnit === this.leftUnit ? this.leftPos : this.rightPos;
 
-            // Apply offset to target pos for rendering text
-            const renderX = targetPos.x + (targetUnit === this.leftUnit ? offsetLeft : offsetRight);
+            // Track receiver's actual rendered position (with knockback) so the number sticks
+            const receiverDX = targetUnit === this.leftUnit ? leftReceiveDX : rightReceiveDX;
+            const renderX = targetPos.x + (targetUnit === this.leftUnit ? offsetLeft : offsetRight) + receiverDX;
 
             ctx.fillStyle = '#fff';
             ctx.strokeStyle = '#000';
@@ -316,7 +337,7 @@ export class BattleScene {
             ctx.font = `bold ${fontSize}px "Jersey 20"`;
             ctx.textAlign = 'center';
 
-            const text = `-${turn.damage}`;
+            const text = `-${turn2.damage}`;
             const textY = targetPos.y - (150 * (this.scale / 2));
 
             ctx.strokeText(text, renderX, textY);
@@ -371,75 +392,185 @@ export class BattleScene {
     }
 
     renderUI(ctx, ease) {
-        // Use logical (CSS) dimensions, not internal DPR-scaled dimensions
         const w = ctx.canvas.clientWidth || ctx.canvas.width;
         const h = ctx.canvas.clientHeight || ctx.canvas.height;
 
-        const margin = w * 0.05;
-        const barWidth = w * 0.4;
-        const barHeight = Math.max(50, h * 0.08);
-        const topY = 20 - (100 * (1 - ease));
+        const margin = Math.max(12, w * 0.04);
+        const panelWidth = Math.min(w * 0.42, 280);
+        const panelHeight = 70;
+        const slideOffset = (1 - ease) * 120;
+        const topY = 16 + (1 - ease) * -40;
 
-        // Pass visual HP
-        this.renderHPBar(ctx, this.leftUnit, this.leftHP, margin, topY, barWidth, barHeight, false);
-        this.renderHPBar(ctx, this.rightUnit, this.rightHP, w - margin - barWidth, topY, barWidth, barHeight, true);
+        // Left panel slides in from left, right slides in from right
+        this.renderHPPanel(
+            ctx, this.leftUnit, this.leftHP,
+            margin - slideOffset, topY, panelWidth, panelHeight, false
+        );
+        this.renderHPPanel(
+            ctx, this.rightUnit, this.rightHP,
+            w - margin - panelWidth + slideOffset, topY, panelWidth, panelHeight, true
+        );
     }
 
-    renderHPBar(ctx, unit, currentHP, x, y, width, height, alignRight) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    renderHPPanel(ctx, unit, currentHP, x, y, width, height, alignRight) {
+        ctx.save();
+
+        // Panel background — Octopath dark plate with gold border
+        const grad = ctx.createLinearGradient(x, y, x, y + height);
+        grad.addColorStop(0, 'rgba(28, 36, 56, 0.96)');
+        grad.addColorStop(1, 'rgba(13, 19, 32, 0.96)');
+        ctx.fillStyle = grad;
         ctx.fillRect(x, y, width, height);
 
-        const nameSize = Math.max(16, width * 0.1);
-        const hpSize = Math.max(14, width * 0.08);
+        // Border (1px gold)
+        ctx.strokeStyle = 'rgba(216, 184, 106, 0.55)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
 
-        // Name
-        ctx.fillStyle = '#fff';
-        ctx.font = `${nameSize}px "Jersey 20"`;
+        // Top accent strip
+        const accentGrad = ctx.createLinearGradient(x, y, x + width, y);
+        accentGrad.addColorStop(0, 'rgba(216, 184, 106, 0)');
+        accentGrad.addColorStop(0.5, 'rgba(240, 210, 124, 0.85)');
+        accentGrad.addColorStop(1, 'rgba(216, 184, 106, 0)');
+        ctx.fillStyle = accentGrad;
+        ctx.fillRect(x + 6, y, width - 12, 1);
+
+        const padX = 12;
+        const nameSize = 18;
+        const hpSize = 14;
+
+        // === Top row: name (one side) | HP value (other side) ===
+        ctx.font = `700 ${nameSize}px "Jersey 20", serif`;
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 1;
+
+        ctx.fillStyle = '#e9e4d4';
         ctx.textAlign = alignRight ? 'right' : 'left';
-        ctx.fillText(unit.name, alignRight ? x + width - 10 : x + 10, y + nameSize + 5);
+        const nameX = alignRight ? x + width - padX : x + padX;
+        const nameY = y + 10;
+        // Truncate long names to fit half panel width
+        const maxNameWidth = width - padX * 2 - 80;
+        let displayName = unit.name || '';
+        if (ctx.measureText(displayName).width > maxNameWidth) {
+            while (displayName.length > 1 && ctx.measureText(displayName + '…').width > maxNameWidth) {
+                displayName = displayName.slice(0, -1);
+            }
+            displayName += '…';
+        }
+        ctx.fillText(displayName, nameX, nameY);
 
-        // HP Bar
-        const barH = height * 0.2;
-        const barW = width - 20;
-        const barX = x + 10;
-        const barY = y + height - barH - 10;
-
-        // Background
-        ctx.fillStyle = '#555';
-        ctx.fillRect(barX, barY, barW, barH);
-
-        // Calculate HP percentage
+        // HP value on opposite side, same row
         const maxHP = unit.maxHealth || 100;
+        ctx.font = `700 ${hpSize}px "Jersey 20", serif`;
+        ctx.fillStyle = '#d8b86a';
+        ctx.textAlign = alignRight ? 'left' : 'right';
+        const hpX = alignRight ? x + padX : x + width - padX;
+        ctx.fillText(`${Math.floor(currentHP)} / ${maxHP}`, hpX, nameY + 3);
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowOffsetY = 0;
+
+        // === Bottom row: HP bar ===
+        const barH = 8;
+        const barW = width - padX * 2;
+        const barX = x + padX;
+        const barY = y + height - padX - barH + 4;
+
+        // Bar track
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.strokeStyle = 'rgba(216, 184, 106, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX + 0.5, barY + 0.5, barW - 1, barH - 1);
+
+        // Bar fill — gradient by HP percentage
         const pct = Math.max(0, Math.min(1, currentHP / maxHP));
-
-        // Create gradient based on HP percentage (like HUD)
-        const gradient = ctx.createLinearGradient(barX, barY, barX + barW, barY);
-
+        const fillGrad = ctx.createLinearGradient(barX, barY, barX, barY + barH);
         if (pct > 0.6) {
-            // High HP: Green to Yellow
-            gradient.addColorStop(0, '#4ade80'); // Green
-            gradient.addColorStop(1, '#fbbf24'); // Yellow
+            fillGrad.addColorStop(0, '#7adf8d');
+            fillGrad.addColorStop(1, '#2d8c3e');
         } else if (pct > 0.3) {
-            // Medium HP: Yellow to Orange
-            gradient.addColorStop(0, '#fbbf24'); // Yellow
-            gradient.addColorStop(1, '#fb923c'); // Orange
+            fillGrad.addColorStop(0, '#fbcf5a');
+            fillGrad.addColorStop(1, '#c97c2a');
         } else {
-            // Low HP: Orange to Red
-            gradient.addColorStop(0, '#fb923c'); // Orange
-            gradient.addColorStop(1, '#ef4444'); // Red
+            fillGrad.addColorStop(0, '#ff8870');
+            fillGrad.addColorStop(1, '#b03020');
+        }
+        ctx.fillStyle = fillGrad;
+        ctx.fillRect(barX + 1, barY + 1, (barW - 2) * pct, barH - 2);
+
+        // Glossy highlight on top of fill
+        if (pct > 0) {
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.fillRect(barX + 1, barY + 1, (barW - 2) * pct, Math.max(1, (barH - 2) * 0.4));
         }
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(barX, barY, barW * pct, barH);
-
-        // HP Text (show as "current / max")
-        ctx.fillStyle = '#fff';
-        ctx.font = `${hpSize}px "Jersey 20"`;
-        ctx.fillText(`${Math.floor(currentHP)} / ${maxHP}`, alignRight ? x + width - 10 : x + 10, barY - 5);
+        ctx.restore();
     }
 
     end() {
         this.active = false;
         if (this.onComplete) this.onComplete();
+    }
+
+    // === Lunge / knockback animation ===
+    // Returns positive offset (in px) along the attacker's facing direction.
+    // Phases:
+    //   attack_charge (0–200ms) : pull back  (anticipation)
+    //   attack_anim   (0–400ms) : surge forward to peak by ~60%, hold to end
+    //   hit           (0–800ms) : recoil back to origin in first 40%
+    _attackerLungeOffset() {
+        if (!this.turns || !this.turns[this.currentTurnIndex]) return 0;
+        const w = this.game.canvas.clientWidth || this.game.canvas.width || 400;
+        const maxLunge = Math.min(w * 0.16, 90);
+        const pullback = Math.min(w * 0.035, 22);
+
+        if (this.phase === 'attack_charge') {
+            const t = Math.min(this.timer / 200, 1);
+            return -this._easeOutCubic(t) * pullback;
+        }
+        if (this.phase === 'attack_anim') {
+            const t = Math.min(this.timer / 400, 1);
+            // Quick surge from -pullback to +maxLunge over first 55%, hold at peak after
+            if (t < 0.55) {
+                const k = t / 0.55;
+                const eased = this._easeOutCubic(k);
+                return -pullback + eased * (maxLunge + pullback);
+            }
+            return maxLunge;
+        }
+        if (this.phase === 'hit') {
+            const t = Math.min(this.timer / 800, 1);
+            // Snap back over first 40%
+            if (t < 0.4) {
+                const k = t / 0.4;
+                return maxLunge * (1 - this._easeInOutQuad(k));
+            }
+            return 0;
+        }
+        return 0;
+    }
+
+    // Receiver pushed away briefly on impact, then springs back.
+    // Trigger only during the very start of `hit` phase.
+    _receiverKnockbackOffset() {
+        if (!this.turns || !this.turns[this.currentTurnIndex]) return 0;
+        if (this.phase !== 'hit') return 0;
+        const w = this.game.canvas.clientWidth || this.game.canvas.width || 400;
+        const peak = Math.min(w * 0.045, 28);
+        const t = Math.min(this.timer / 350, 1); // brief
+        // Out-and-back: sin curve, peak at t=0.4
+        return Math.sin(Math.min(t / 0.6, 1) * Math.PI) * peak;
+    }
+
+    _easeOutCubic(t) {
+        const k = 1 - t;
+        return 1 - k * k * k;
+    }
+
+    _easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 }
