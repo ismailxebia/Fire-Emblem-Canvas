@@ -1,7 +1,7 @@
 
 import { updateProfileStatus } from '../ui.js';
 import { Haptics, ImpactStyle } from '../utils/haptics.js';
-import { positionMenuNearUnitDeferred } from '../utils/menuPosition.js';
+import { positionMenuNearUnitDeferred, positionMenuAtCanvasBottomCenterDeferred } from '../utils/menuPosition.js';
 
 export const ActionState = {
     IDLE: 'IDLE',
@@ -187,7 +187,9 @@ export class ActionSystem {
             const btnCancel = document.getElementById('btnCancel');
             if (btnCancel) btnCancel.style.display = 'flex';
 
-            positionMenuNearUnitDeferred('confirmMenu', this.selectedHero, this.game);
+            // Target selection: menu must stay out of the way so it doesn't
+            // cover candidate cells around the hero.
+            positionMenuAtCanvasBottomCenterDeferred('confirmMenu', this.game);
         }
         this.hideActionMenu();
     }
@@ -248,7 +250,6 @@ export class ActionSystem {
         this.game.battle.actionMode = 'selected'; // To show range overlay
         this.hideAllMenus();
 
-        // Show cancel button only (or back)
         const confirmMenu = document.getElementById('confirmMenu');
         if (confirmMenu) {
             confirmMenu.style.display = 'flex';
@@ -256,6 +257,10 @@ export class ActionSystem {
             document.getElementById('btnConfirm').style.display = 'none';
             document.getElementById('btnMagicConfirm').style.display = 'none';
             document.getElementById('btnCancel').style.display = 'flex';
+
+            // Attack/magic target selection: keep menu out of the way so it
+            // doesn't cover the cells/enemies the player is choosing among.
+            positionMenuAtCanvasBottomCenterDeferred('confirmMenu', this.game);
         }
     }
 

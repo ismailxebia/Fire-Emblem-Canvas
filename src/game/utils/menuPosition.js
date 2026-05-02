@@ -80,6 +80,52 @@ export function positionMenuNearUnit(menuId, unit, game) {
   menu.style.setProperty('--menu-origin', `${originY} ${originX}`);
 }
 
+// Position menu at bottom-center of the canvas. Use this when the player
+// is selecting a target on the battlefield (move/attack/magic target
+// selection) — the menu must stay out of the way so it doesn't cover
+// nearby cells the player is choosing among.
+export function positionMenuAtCanvasBottomCenter(menuId, game) {
+  if (!menuId || !game) return;
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+
+  const canvas = game.canvas;
+  if (!canvas) return;
+
+  const canvasRect = canvas.getBoundingClientRect();
+  const measuredW = menu.offsetWidth;
+  const measuredH = menu.offsetHeight;
+  const menuW = measuredW > 0 ? measuredW : 168;
+  const menuH = measuredH > 0 ? measuredH : 44;
+
+  const margin = 16;
+  let left = canvasRect.left + (canvasRect.width - menuW) / 2;
+  let top = canvasRect.top + canvasRect.height - menuH - margin - 8;
+
+  left = Math.max(margin, Math.min(left, window.innerWidth - menuW - margin));
+  top = Math.max(canvasRect.top + margin, Math.min(top, window.innerHeight - menuH - margin));
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.setProperty('--menu-origin', 'bottom center');
+}
+
+export function positionMenuAtCanvasBottomCenterDeferred(menuId, game) {
+  const menu = document.getElementById(menuId);
+  if (menu) {
+    const prevTransition = menu.style.transition;
+    menu.style.transition = 'none';
+    positionMenuAtCanvasBottomCenter(menuId, game);
+    void menu.offsetHeight;
+    menu.style.transition = prevTransition;
+  } else {
+    positionMenuAtCanvasBottomCenter(menuId, game);
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => positionMenuAtCanvasBottomCenter(menuId, game));
+  });
+}
+
 // Refine after layout. Disables transition for the very first placement so
 // the menu doesn't slide from its previous position on initial show.
 export function positionMenuNearUnitDeferred(menuId, unit, game) {

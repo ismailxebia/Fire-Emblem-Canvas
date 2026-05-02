@@ -16,6 +16,10 @@ export function handleInput(game) {
   let lastEventTime = 0;
   const EVENT_DEBOUNCE = 50; // ms
 
+  // Velocity tracking for inertia scroll
+  let lastMoveTime = 0;
+  let velSamples = []; // recent {dx, dy, dt} samples for averaging
+
   // Unified handler for start
   const handleStart = (e) => {
     const now = Date.now();
@@ -41,6 +45,13 @@ export function handleInput(game) {
     startX = clientX;
     startY = clientY;
     hasMoved = false;
+
+    // Reset velocity tracking — interrupt any ongoing inertia
+    game.cameraVelocity.x = 0;
+    game.cameraVelocity.y = 0;
+    velSamples.length = 0;
+    lastMoveTime = now;
+    game.isDraggingCamera = true;
 
     if (e.pointerId !== undefined && game.canvas.setPointerCapture) {
       try {
@@ -74,6 +85,14 @@ export function handleInput(game) {
       const logicalHeight = game.canvas.clientHeight || game.canvas.height;
       game.camera.x = clamp(game.camera.x - dx, 0, game.grid.stageWidth - logicalWidth);
       game.camera.y = clamp(game.camera.y - dy, 0, game.grid.stageHeight - logicalHeight);
+
+      // Sample velocity (px per frame ≈ 16.67ms) for inertia on release
+      const now = Date.now();
+      const dt = Math.max(1, now - lastMoveTime);
+      velSamples.push({ dx: -dx, dy: -dy, dt });
+      if (velSamples.length > 5) velSamples.shift();
+      lastMoveTime = now;
+
       startX = currentX;
       startY = currentY;
     }
@@ -104,13 +123,35 @@ export function handleInput(game) {
     }
 
     if (isDragging && hasMoved) {
+      // Compute fling velocity from recent samples (last ~80ms)
+      const now = Date.now();
+      const recent = velSamples.filter(s => now - lastMoveTime <= 80 || true).slice(-3);
+      let totalDx = 0, totalDy = 0, totalDt = 0;
+      for (const s of recent) {
+        totalDx += s.dx;
+        totalDy += s.dy;
+        totalDt += s.dt;
+      }
+      if (totalDt > 0 && (Math.abs(totalDx) > 2 || Math.abs(totalDy) > 2)) {
+        const pxPerFrame = 16.6667;
+        game.cameraVelocity.x = (totalDx / totalDt) * pxPerFrame;
+        game.cameraVelocity.y = (totalDy / totalDt) * pxPerFrame;
+        // Cap velocity to prevent crazy flings
+        const maxVel = 40;
+        game.cameraVelocity.x = Math.max(-maxVel, Math.min(maxVel, game.cameraVelocity.x));
+        game.cameraVelocity.y = Math.max(-maxVel, Math.min(maxVel, game.cameraVelocity.y));
+      }
+      game.isDraggingCamera = false;
       isDragging = false;
       hasMoved = false;
+      velSamples.length = 0;
       return;
     }
 
+    game.isDraggingCamera = false;
     isDragging = false;
     hasMoved = false;
+    velSamples.length = 0;
 
     let clientX, clientY;
     if (e.changedTouches && e.changedTouches.length > 0) {
@@ -142,6 +183,8 @@ export function handleInput(game) {
   const handleCancel = (e) => {
     isDragging = false;
     hasMoved = false;
+    game.isDraggingCamera = false;
+    velSamples.length = 0;
     if (e.pointerId !== undefined && game.canvas.releasePointerCapture) {
       try {
         game.canvas.releasePointerCapture(e.pointerId);

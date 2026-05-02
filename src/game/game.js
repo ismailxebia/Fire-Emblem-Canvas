@@ -25,6 +25,8 @@ export default class Game {
     this.ctx = ctx;
     this.lastTime = 0;
     this.camera = { x: 0, y: 0 };
+    this.cameraVelocity = { x: 0, y: 0 };
+    this.isDraggingCamera = false;
 
     // Use pre-loaded data if available, otherwise fall back to local JSON
     if (battleData) {
@@ -342,6 +344,35 @@ export default class Game {
     }
     if (this.damagePopups) {
       this.damagePopups.update(deltaTime);
+    }
+
+    // Camera inertia: when finger is up, decay velocity smoothly
+    if (!this.isDraggingCamera) {
+      const vx = this.cameraVelocity.x;
+      const vy = this.cameraVelocity.y;
+      if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
+        const f = deltaTime / 16.6667;
+        this.camera.x += vx * f;
+        this.camera.y += vy * f;
+        const decay = Math.pow(0.92, f);
+        this.cameraVelocity.x *= decay;
+        this.cameraVelocity.y *= decay;
+        if (Math.abs(this.cameraVelocity.x) < 0.05) this.cameraVelocity.x = 0;
+        if (Math.abs(this.cameraVelocity.y) < 0.05) this.cameraVelocity.y = 0;
+
+        // Clamp + kill velocity at edges
+        const lw = this.canvas.clientWidth || this.canvas.width;
+        const lh = this.canvas.clientHeight || this.canvas.height;
+        const maxX = Math.max(0, this.grid.stageWidth - lw);
+        const maxY = Math.max(0, this.grid.stageHeight - lh);
+        if (this.camera.x < 0) { this.camera.x = 0; this.cameraVelocity.x = 0; }
+        if (this.camera.x > maxX) { this.camera.x = maxX; this.cameraVelocity.x = 0; }
+        if (this.camera.y < 0) { this.camera.y = 0; this.cameraVelocity.y = 0; }
+        if (this.camera.y > maxY) { this.camera.y = maxY; this.cameraVelocity.y = 0; }
+      } else {
+        this.cameraVelocity.x = 0;
+        this.cameraVelocity.y = 0;
+      }
     }
 
     if (this.turnPhase === 'hero') {
