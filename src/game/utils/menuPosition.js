@@ -1,15 +1,13 @@
-// Smart menu positioning — places menu in the canvas quadrant OPPOSITE to
-// the selected character so it never covers them.
+// Anchor menu directly next to the selected character (FE-style):
+//   - If character is in left half → menu to the RIGHT of the cell
+//   - If character is in right half → menu to the LEFT of the cell
+//   - Vertical: aligned to character's row, clamped to canvas bounds
 //
-// Strategy:
-//   1. Compute character center in viewport coordinates
-//   2. Detect which canvas quadrant the character is in (TL/TR/BL/BR)
-//   3. Anchor the menu in the opposite quadrant with safe margin
-//   4. Set CSS variable --menu-origin so the scale-in animation
-//      grows from the side closest to the character (visual continuity)
+// This keeps the menu close to where the player's thumb just tapped and
+// preserves the visual link between unit and action.
 
-const HORIZONTAL_MARGIN = 16;
-const VERTICAL_MARGIN = 16;
+const GAP = 12;
+const VIEWPORT_MARGIN = 12;
 
 export function positionMenuNearUnit(menuId, unit, game) {
   if (!menuId || !unit || !game) return;
@@ -23,7 +21,7 @@ export function positionMenuNearUnit(menuId, unit, game) {
 
   const canvasRect = canvas.getBoundingClientRect();
 
-  // Prefer pendingMove destination over current col/row when relevant
+  // Use pendingMove destination over current col/row when applicable
   let col = unit.col;
   let row = unit.row;
   if (game.battle?.pendingMove?.newPosition && unit === game.battle.pendingMove.hero) {
@@ -32,67 +30,65 @@ export function positionMenuNearUnit(menuId, unit, game) {
   }
 
   const cellPos = grid.getCellPosition(col, row);
-  const charScreenX = canvasRect.left + cellPos.x + grid.tileSize / 2 - camera.x;
-  const charScreenY = canvasRect.top + cellPos.y + grid.tileSize / 2 - camera.y;
+  const tileSize = grid.tileSize;
+  const charCellX = canvasRect.left + cellPos.x - camera.x;
+  const charCellY = canvasRect.top + cellPos.y - camera.y;
+  const charCenterX = charCellX + tileSize / 2;
 
   const canvasMidX = canvasRect.left + canvasRect.width / 2;
-  const canvasMidY = canvasRect.top + canvasRect.height / 2;
+  const charOnLeftHalf = charCenterX <= canvasMidX;
 
-  const charOnLeftHalf = charScreenX <= canvasMidX;
-  const charOnTopHalf = charScreenY <= canvasMidY;
-
-  // Use measured size if menu is currently visible; otherwise estimate
+  // Use measured size if menu visible, otherwise estimate
   const measuredW = menu.offsetWidth;
   const measuredH = menu.offsetHeight;
   const menuW = measuredW > 0 ? measuredW : 184;
   const menuH = measuredH > 0 ? measuredH : 200;
 
-  let left, top;
-
-  // Horizontal: opposite half of canvas
+  // Horizontal: place menu opposite side of the character cell
+  let left;
   if (charOnLeftHalf) {
-    // Char on left → menu on right
-    left = canvasRect.left + canvasRect.width - menuW - HORIZONTAL_MARGIN;
+    left = charCellX + tileSize + GAP;
   } else {
-    // Char on right → menu on left
-    left = canvasRect.left + HORIZONTAL_MARGIN;
+    left = charCellX - menuW - GAP;
   }
 
-  // Vertical: opposite half within canvas
-  if (charOnTopHalf) {
-    // Char in top half → menu near bottom of canvas
-    top = canvasRect.top + canvasRect.height - menuH - VERTICAL_MARGIN;
-  } else {
-    // Char in bottom half → menu near top of canvas
-    top = canvasRect.top + VERTICAL_MARGIN;
+  // Vertical: align menu top with character cell. If it would overflow the
+  // bottom of canvas, anchor menu BOTTOM to the cell bottom instead so it
+  // grows upward but still stays close to the unit.
+  const canvasBottom = canvasRect.top + canvasRect.height;
+  const canvasTop = canvasRect.top;
+  let top = charCellY;
+  if (top + menuH > canvasBottom - VIEWPORT_MARGIN) {
+    top = charCellY + tileSize - menuH;
   }
+  top = Math.max(canvasTop + VIEWPORT_MARGIN, Math.min(top, canvasBottom - menuH - VIEWPORT_MARGIN));
 
-  // Clamp to viewport (defense-in-depth)
-  left = Math.max(HORIZONTAL_MARGIN, Math.min(left, window.innerWidth - menuW - HORIZONTAL_MARGIN));
-  top = Math.max(canvasRect.top + VERTICAL_MARGIN, Math.min(top, window.innerHeight - menuH - VERTICAL_MARGIN));
+  // Horizontal viewport clamp (failsafe — flips menu inside the viewport
+  // if the cell sits flush against an edge).
+  const minLeft = VIEWPORT_MARGIN;
+  const maxLeft = window.innerWidth - menuW - VIEWPORT_MARGIN;
+  if (left < minLeft) left = minLeft;
+  if (left > maxLeft) left = maxLeft;
 
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 
-  // Animation origin: closest corner of menu to the character
-  // (so it scales toward / from the character)
+  // Animation origin: corner of menu nearest to the character
   const originX = charOnLeftHalf ? 'left' : 'right';
-  const originY = charOnTopHalf ? 'top' : 'bottom';
+  const charBelowMenu = (charCellY + tileSize / 2) > top + menuH / 2;
+  const originY = charBelowMenu ? 'bottom' : 'top';
   menu.style.setProperty('--menu-origin', `${originY} ${originX}`);
 }
 
-// Refine position after layout. Call right after setting display:flex.
-// Disables CSS transition for the very first placement (avoids slide from
-// previous position) then re-enables it for subsequent updates.
+// Refine after layout. Disables transition for the very first placement so
+// the menu doesn't slide from its previous position on initial show.
 export function positionMenuNearUnitDeferred(menuId, unit, game) {
   const menu = document.getElementById(menuId);
   if (menu) {
     const prevTransition = menu.style.transition;
     menu.style.transition = 'none';
     positionMenuNearUnit(menuId, unit, game);
-    // Force reflow so the position-without-transition takes effect
-    // before re-enabling transition for any later refinement.
-    void menu.offsetHeight;
+    void menu.offsetHeight; // force reflow
     menu.style.transition = prevTransition;
   } else {
     positionMenuNearUnit(menuId, unit, game);
