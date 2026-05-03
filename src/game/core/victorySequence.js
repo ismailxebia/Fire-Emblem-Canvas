@@ -1,26 +1,28 @@
 // Victory cinematic — runs after the last enemy falls.
 //
-// Flow:
-//   1. banner          : tiny top-anchored toast "★ VICTORY ★ · +50 EXP BONUS"
-//   2. focus_hero      : pan + zoom + bg-skew to a hero who leveled up,
-//                        spawn floating "LEVEL UP TO N" text over their head.
-//                        Loop for each leveled-up hero.
-//   3. fade_out        : reset camera, fade screen to black
-//   4. base_menu       : show base camp overlay
-//   5. done
-//
-// The orchestrator is ticked from game.update().
+// Flow (no overlapping animations — each phase finishes before the next):
+//   1. banner          : tiny top toast "★ VICTORY ★ · +50 EXP BONUS"
+//   2. focus_hero      : pan + zoom + bg perspective on a leveled-up hero,
+//                        spawn floating "LEVEL UP TO N" text. Loop per hero.
+//   3. cooldown        : reset camera transform smoothly (no zoom/skew)
+//   4. fade_out        : THEN dim the screen to black
+//   5. base_menu       : show base camp overlay
+//   6. done
 
 import { showVictoryBanner } from '../ui.js';
 
-const ZOOM_SCALE = 1.18;
-const SKEW_X = 0.05;
-const SKEW_Y = 0.018;
+// Camera state during cinematic
+const ZOOM_SCALE = 1.22;
+const SKEW_X = 0.06;
+const SKEW_Y = 0.025;
+const PERSPECTIVE = 0.42;        // bg vertical taper — Octopath-style depth
 
-const BANNER_HOLD_MS = 1300;
-const FOCUS_PAN_DELAY_MS = 380;   // wait for camera to land before showing text
-const FOCUS_HOLD_MS = 1500;       // total time per hero focus
-const FADE_HOLD_MS = 950;
+// Timings (ms)
+const BANNER_HOLD_MS = 1100;
+const FOCUS_PAN_DELAY_MS = 280;  // wait for camera to land before showing text
+const FOCUS_HOLD_MS = 1300;      // total time per hero focus
+const COOLDOWN_MS = 380;         // camera resets to default before fade
+const FADE_HOLD_MS = 800;
 
 const BONUS_EXP = 50;
 
@@ -31,7 +33,7 @@ export class VictorySequence {
         this.timer = 0;
         this.active = false;
         this.heroResults = [];
-        this.levelUpQueue = [];   // [{hero, finalLevel}]
+        this.levelUpQueue = [];
         this.levelUpIndex = 0;
         this._pendingTextTimer = null;
         this.onFinishCallback = null;
@@ -54,14 +56,13 @@ export class VictorySequence {
             });
         }
 
-        // Notify React layer (e.g. for Supabase sync)
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('gameVictory', {
                 detail: { results: this.heroResults }
             }));
         }
 
-        // Build queue of heroes who need level-up cinematic
+        // Queue ONLY heroes who actually leveled up — they get the cinematic
         this.levelUpQueue = this.heroResults
             .filter(r => r.levelUps.length > 0)
             .map(r => ({
@@ -74,12 +75,6 @@ export class VictorySequence {
         this.timer = 0;
         if (typeof window !== 'undefined') window.gameOverlayActive = true;
 
-        // Floating "+50 EXP" above each hero — diegetic feedback
-        for (const r of this.heroResults) {
-            this._spawnExpFloat(r.hero, r.expGained);
-        }
-
-        // Slim banner
         showVictoryBanner({
             stageName: stageName || this.game.stageData?.battleName || 'Stage Cleared',
             bonusExp: BONUS_EXP,
@@ -98,7 +93,7 @@ export class VictorySequence {
                     if (this.levelUpQueue.length > 0) {
                         this._enterFocusPhase();
                     } else {
-                        this._enterFadeOut();
+                        this._enterCooldown();
                     }
                 }
                 break;
@@ -110,8 +105,17 @@ export class VictorySequence {
                         this._panToCurrentTarget();
                         this.timer = 0;
                     } else {
-                        this._enterFadeOut();
+                        this._enterCooldown();
                     }
+                }
+                break;
+
+            case 'cooldown':
+                // Wait for camera to fully reset to default (no zoom/skew)
+                // BEFORE we start fading — so user sees a clean reset, not
+                // a fade-during-zoom mess.
+                if (this.timer > COOLDOWN_MS) {
+                    this._enterFadeOut();
                 }
                 break;
 
@@ -122,7 +126,6 @@ export class VictorySequence {
                 break;
 
             case 'base_menu':
-                // Wait for user to dismiss
                 break;
         }
     }
@@ -130,11 +133,12 @@ export class VictorySequence {
     _enterFocusPhase() {
         this.phase = 'focus_hero';
         this.timer = 0;
-        // Apply zoom + skew (skew only affects bg in render; sprites stay upright)
+        // Background gets the dramatic transform; sprites stay upright.
         this.game.cameraTransformTarget = {
             scale: ZOOM_SCALE,
             skewX: SKEW_X,
             skewY: SKEW_Y,
+            perspective: PERSPECTIVE,
         };
         this._panToCurrentTarget();
     }
@@ -144,25 +148,11 @@ export class VictorySequence {
         if (!target) return;
         this._panToHero(target.hero);
 
-        // Cancel any in-flight text spawn from a previous hero
         if (this._pendingTextTimer) clearTimeout(this._pendingTextTimer);
-
-        // Wait for the camera to land before popping the text
         this._pendingTextTimer = setTimeout(() => {
             this._spawnLevelUpText(target.hero, target.finalLevel);
             this._pendingTextTimer = null;
         }, FOCUS_PAN_DELAY_MS);
-    }
-
-    _spawnExpFloat(hero, amount) {
-        if (!this.game.damagePopups) return;
-        const tile = this.game.grid.getCellPosition(hero.col, hero.row);
-        this.game.damagePopups.spawn(
-            tile.x + this.game.grid.tileSize / 2,
-            tile.y - 6,
-            `+${amount} EXP`,
-            { color: '#7fffa0', fontSize: 13, duration: 1100, riseDistance: 28 }
-        );
     }
 
     _spawnLevelUpText(hero, level) {
@@ -170,13 +160,13 @@ export class VictorySequence {
         const tile = this.game.grid.getCellPosition(hero.col, hero.row);
         this.game.damagePopups.spawn(
             tile.x + this.game.grid.tileSize / 2,
-            tile.y - 12,
+            tile.y - 14,
             `LEVEL UP TO ${level}`,
             {
                 color: '#ffd54f',
                 fontSize: 18,
-                duration: 1300,
-                riseDistance: 42,
+                duration: 1200,
+                riseDistance: 44,
                 isCrit: true,
             }
         );
@@ -204,15 +194,23 @@ export class VictorySequence {
         this.game.cameraPanTarget = { x: targetX, y: targetY };
     }
 
-    _enterFadeOut() {
-        this.phase = 'fade_out';
+    _enterCooldown() {
+        this.phase = 'cooldown';
         this.timer = 0;
         if (this._pendingTextTimer) {
             clearTimeout(this._pendingTextTimer);
             this._pendingTextTimer = null;
         }
-        // Smoothly reset camera transform — back to flat default
-        this.game.cameraTransformTarget = { scale: 1, skewX: 0, skewY: 0 };
+        // Reset camera transform smoothly — back to flat default.
+        // Pan target preserved so we end on the last hero (no jump).
+        this.game.cameraTransformTarget = {
+            scale: 1, skewX: 0, skewY: 0, perspective: 0,
+        };
+    }
+
+    _enterFadeOut() {
+        this.phase = 'fade_out';
+        this.timer = 0;
         const overlay = document.getElementById('victoryFade');
         if (overlay) overlay.classList.add('active');
     }

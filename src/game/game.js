@@ -30,9 +30,12 @@ export default class Game {
     this.isDraggingCamera = false;
 
     // Cinematic camera transform — applied on top of camera.x/y in render.
-    // scale=1, skew=0 means "no effect". Used by victory sequence for drama.
-    this.cameraTransform = { scale: 1, skewX: 0, skewY: 0 };
-    this.cameraTransformTarget = { scale: 1, skewX: 0, skewY: 0 };
+    //   scale       — uniform zoom around screen center (also applies to sprites)
+    //   skewX/skewY — affine shear (background only, sprites stay upright)
+    //   perspective — 0..1, vertical perspective compression (background only).
+    //                 0 = flat, 0.4 = top of bg ~60% width of bottom (Octopath-ish).
+    this.cameraTransform = { scale: 1, skewX: 0, skewY: 0, perspective: 0 };
+    this.cameraTransformTarget = { scale: 1, skewX: 0, skewY: 0, perspective: 0 };
     this.cameraPanTarget = null; // {x, y} when active; camera lerps toward it
 
     // Use pre-loaded data if available, otherwise fall back to local JSON
@@ -152,6 +155,37 @@ export default class Game {
 
     this.enemyTurnProcessing = false;
     this.currentEnemyIndex = 0;
+  }
+
+  /**
+   * Strip-render the background to fake vertical perspective (top compressed,
+   * bottom full width). Cheap approximation of `rotateX` without WebGL.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {HTMLImageElement} img
+   * @param {number} dx        destination X (top-left)
+   * @param {number} dy        destination Y (top-left)
+   * @param {number} dw        destination width (no-perspective)
+   * @param {number} dh        destination height
+   * @param {number} amount    0..1 — how much the top compresses (0.4 = strong)
+   */
+  _drawBgPerspective(ctx, img, dx, dy, dw, dh, amount) {
+    const STRIPS = 22;
+    const stripDh = dh / STRIPS;
+    const stripSh = img.height / STRIPS;
+    const dCenterX = dx + dw / 2;
+    const a = Math.max(0, Math.min(0.85, amount));
+    for (let i = 0; i < STRIPS; i++) {
+      const tt = i / (STRIPS - 1); // 0 top → 1 bottom
+      const widthScale = 1 - a * (1 - tt); // top: (1-a), bottom: 1
+      const stripDw = dw * widthScale;
+      const stripDx = dCenterX - stripDw / 2;
+      ctx.drawImage(
+        img,
+        0, i * stripSh, img.width, stripSh + 1, // src (extra px to avoid gaps)
+        stripDx, dy + i * stripDh, stripDw, stripDh + 1
+      );
+    }
   }
 
   _setTimeout(fn, ms) {
@@ -394,25 +428,25 @@ export default class Game {
     }
 
     // === Cinematic camera updates ===
-    // Slow & buttery lerp on transform — ~600ms half-life feels intentional
-    // (Octopath-style smooth scale-in instead of snap)
+    // Snappy lerp — ~220ms half-life. Fast & smooth, doesn't feel laggy.
     {
-      const lerp = 1 - Math.pow(0.5, deltaTime / 600);
+      const lerp = 1 - Math.pow(0.5, deltaTime / 220);
       const t = this.cameraTransform;
       const tt = this.cameraTransformTarget;
       t.scale += (tt.scale - t.scale) * lerp;
       t.skewX += (tt.skewX - t.skewX) * lerp;
       t.skewY += (tt.skewY - t.skewY) * lerp;
+      t.perspective += (tt.perspective - t.perspective) * lerp;
       if (Math.abs(tt.scale - t.scale) < 0.001) t.scale = tt.scale;
       if (Math.abs(tt.skewX - t.skewX) < 0.0005) t.skewX = tt.skewX;
       if (Math.abs(tt.skewY - t.skewY) < 0.0005) t.skewY = tt.skewY;
+      if (Math.abs(tt.perspective - t.perspective) < 0.001) t.perspective = tt.perspective;
     }
 
     // Smoothly pan camera toward target (used by victory cinematic).
-    // ~450ms half-life — fast enough to land before hold timer, slow enough
-    // to read as a deliberate camera move.
+    // ~280ms half-life — quick, decisive camera move.
     if (this.cameraPanTarget) {
-      const panLerp = 1 - Math.pow(0.5, deltaTime / 450);
+      const panLerp = 1 - Math.pow(0.5, deltaTime / 280);
       this.camera.x += (this.cameraPanTarget.x - this.camera.x) * panLerp;
       this.camera.y += (this.cameraPanTarget.y - this.camera.y) * panLerp;
       if (
@@ -454,6 +488,33 @@ export default class Game {
       }
     }
 
+    // Suspend normal turn cycle while victory cinematic is playing.
+    // Otherwise the game would also fire "ENEMY TURN" / "TURN N" banners
+    // in parallel and clash with the victory banner.
+    if (this.victorySequence?.active) {
+      return;
+    }
+
+    // Also skip if no enemies left (the action_system already kicked off the
+    // victory sequence — don't transition to enemy phase against an empty list).
+    const noEnemies = this.battle.enemies.length === 0
+      || this.battle.enemies.every(e => e.health <= 0 || e.isDying || e.dead);
+    if (noEnemies) {
+      // Defensive: fire victory if it didn't trigger via the attack callback
+      // (e.g. enemy killed via counter damage, or other edge cases).
+      // Only fires once via the active flag.
+      if (
+        this.victorySequence
+        && !this.victorySequence.active
+        && this.victorySequence.phase === 'idle'
+        && this.turnPhase === 'hero'  // wait until hero phase to avoid mid-enemy-turn race
+        && !this.actionSystem?.selectedHero // wait until idle (no current action)
+      ) {
+        this.victorySequence.start({ stageName: this.stageData?.battleName });
+      }
+      return;
+    }
+
     if (this.turnPhase === 'hero') {
       const allHeroesActed = this.battle.heroes.every(hero => hero.actionTaken || hero.health <= 0);
       if (allHeroesActed && !this._enemyTransitionPending) {
@@ -487,11 +548,12 @@ export default class Game {
     ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
     // === Cinematic transform (Octopath HD-2D split) ===
-    //   Background:    zoom + skew (perspective)
+    //   Background:    zoom + skew (shear) + perspective (vertical taper)
     //   Foreground:    zoom only — sprites stay flat/upright
     const t = this.cameraTransform;
     const hasZoom = Math.abs(t.scale - 1) > 0.001;
     const hasSkew = Math.abs(t.skewX) > 0.001 || Math.abs(t.skewY) > 0.001;
+    const hasPerspective = t.perspective > 0.001;
     const cx = logicalWidth / 2;
     const cy = logicalHeight / 2;
 
@@ -504,10 +566,16 @@ export default class Game {
       ctx.translate(-cx, -cy);
     }
     if (this.backgroundImage.complete && this.backgroundImage.naturalWidth > 0) {
-      const scale = Math.max(logicalWidth / this.backgroundImage.width, logicalHeight / this.backgroundImage.height);
-      const w = this.backgroundImage.width * scale;
-      const h = this.backgroundImage.height * scale;
-      ctx.drawImage(this.backgroundImage, -this.camera.x, -this.camera.y, w, h);
+      const bgScale = Math.max(logicalWidth / this.backgroundImage.width, logicalHeight / this.backgroundImage.height);
+      const w = this.backgroundImage.width * bgScale;
+      const h = this.backgroundImage.height * bgScale;
+      const dx = -this.camera.x;
+      const dy = -this.camera.y;
+      if (hasPerspective) {
+        this._drawBgPerspective(ctx, this.backgroundImage, dx, dy, w, h, t.perspective);
+      } else {
+        ctx.drawImage(this.backgroundImage, dx, dy, w, h);
+      }
     } else {
       ctx.fillStyle = '#333';
       ctx.fillRect(0, 0, logicalWidth, logicalHeight);
