@@ -35,6 +35,11 @@ export interface Unit {
     base_spd: number;
     base_def: number;
     base_res: number;
+    growth_hp?: number;
+    growth_atk?: number;
+    growth_spd?: number;
+    growth_def?: number;
+    growth_res?: number;
     attack_range: number;
     movement_range: number;
     level: number;
@@ -44,6 +49,24 @@ export interface Unit {
     magic_skill_id: string | null;
     created_at?: string;
     updated_at?: string;
+}
+
+export interface PlayerUnit {
+    id: number;
+    player_id: string;
+    unit_id: string;
+    current_level: number;
+    current_exp: number;
+    current_hp: number;
+    current_atk: number;
+    current_spd: number;
+    current_def: number;
+    current_res: number;
+    is_favorite: boolean;
+    weapon_id?: string;
+    armor_id?: string;
+    accessory_id?: string;
+    acquired_at?: string;
 }
 
 export interface Stage {
@@ -114,4 +137,6 @@ export interface FieldDef {
     placeholder?: string;
     help?: string;
     width?: 'full' | 'half' | 'third';
+    /** Section name. Fields with the same section render together under a header. */
+    section?: string;
 }

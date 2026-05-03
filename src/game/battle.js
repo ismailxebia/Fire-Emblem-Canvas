@@ -100,7 +100,23 @@ export default class Battle {
     const dist = Math.abs(hero.col - enemy.col) + Math.abs(hero.row - enemy.row);
     if (dist > hero.attackRange) return;
     enemy.health -= hero.attack;
-    if (enemy.health < 0) enemy.health = 0;
+    
+    // Gain EXP for attacking
+    if (typeof hero.gainExp === 'function') {
+      hero.gainExp(10);
+    }
+
+    if (enemy.health <= 0) {
+      enemy.health = 0;
+      // Bonus EXP for killing
+      if (typeof hero.gainExp === 'function') {
+        const enemyLevel = enemy.level || 1;
+        const levelDiff = enemyLevel - hero.level;
+        const killExp = Math.max(10, 30 + levelDiff * 3);
+        hero.gainExp(killExp);
+      }
+    }
+    
     hero.actionTaken = true;
   }
 

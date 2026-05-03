@@ -8,14 +8,19 @@ import type {
 import { DataTable } from '../components/DataTable';
 import { EntityEditor } from '../components/EntityEditor';
 import { GridEditor } from '../components/GridEditor';
+import { Toolbar } from '../components/Toolbar';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
+import { SpritePreview } from '../components/SpritePreview';
 import type { CellData, InteractIntent } from '../components/GridEditor';
 
 const STAGE_FIELDS: FieldDef[] = [
-    { key: 'id', label: 'ID', type: 'text', required: true, width: 'half', placeholder: 'stage01' },
-    { key: 'name', label: 'Stage Name', type: 'text', required: true, width: 'half', placeholder: 'Battle of Armageddon' },
-    { key: 'chapter', label: 'Chapter', type: 'number', min: 1, width: 'third' },
-    { key: 'stage_order', label: 'Order in Chapter', type: 'number', min: 1, width: 'third' },
+    { section: 'Identity', key: 'id', label: 'ID', type: 'text', required: true, width: 'half', placeholder: 'stage01' },
+    { section: 'Identity', key: 'name', label: 'Stage Name', type: 'text', required: true, width: 'half', placeholder: 'Battle of Armageddon' },
+    { section: 'Identity', key: 'chapter', label: 'Chapter', type: 'number', min: 1, width: 'third' },
+    { section: 'Identity', key: 'stage_order', label: 'Order in Chapter', type: 'number', min: 1, width: 'third' },
     {
+        section: 'Identity',
         key: 'difficulty', label: 'Difficulty', type: 'select', width: 'third',
         options: [
             { value: 'easy', label: 'Easy' },
@@ -24,15 +29,18 @@ const STAGE_FIELDS: FieldDef[] = [
             { value: 'nightmare', label: 'Nightmare' },
         ],
     },
-    { key: 'background_url', label: 'Background URL', type: 'url' },
-    { key: 'max_heroes', label: 'Max Heroes', type: 'number', min: 1, max: 6, width: 'third' },
-    { key: 'recommended_level', label: 'Rec. Level', type: 'number', min: 1, width: 'third' },
-    { key: 'exp_reward', label: 'EXP Reward', type: 'number', min: 0, width: 'third' },
-    { key: 'gold_reward', label: 'Gold Reward', type: 'number', min: 0 },
-    { key: 'has_clouds', label: 'Clouds Effect', type: 'boolean', width: 'third' },
-    { key: 'has_rain', label: 'Rain Effect', type: 'boolean', width: 'third' },
-    { key: 'has_snow', label: 'Snow Effect', type: 'boolean', width: 'third' },
-    { key: 'is_published', label: 'Published', type: 'boolean', help: 'Visible to players' },
+
+    { section: 'Battle Setup', key: 'max_heroes', label: 'Max Heroes', type: 'number', min: 1, max: 6, width: 'third' },
+    { section: 'Battle Setup', key: 'recommended_level', label: 'Rec. Level', type: 'number', min: 1, width: 'third' },
+    { section: 'Battle Setup', key: 'is_published', label: 'Published', type: 'boolean', width: 'third', help: 'Visible to players' },
+
+    { section: 'Rewards', key: 'exp_reward', label: 'EXP Reward', type: 'number', min: 0, width: 'half' },
+    { section: 'Rewards', key: 'gold_reward', label: 'Gold Reward', type: 'number', min: 0, width: 'half' },
+
+    { section: 'Visuals & Effects', key: 'background_url', label: 'Background URL', type: 'url' },
+    { section: 'Visuals & Effects', key: 'has_clouds', label: 'Clouds', type: 'boolean', width: 'third' },
+    { section: 'Visuals & Effects', key: 'has_rain', label: 'Rain', type: 'boolean', width: 'third' },
+    { section: 'Visuals & Effects', key: 'has_snow', label: 'Snow', type: 'boolean', width: 'third' },
 ];
 
 export function StagesSection() {
@@ -57,54 +65,64 @@ export function StagesSection() {
 
     useEffect(() => { reload(); }, [reload]);
 
+    const { page, setPage, pageSize, total, paginated } = usePagination(rows, '');
+
     return (
         <div>
-            <div className="studio-section-head">
-                <div>
-                    <h1>Stages</h1>
-                    <p className="studio-subtle">Battle maps. Click "Layout →" to visually place units & obstacles on the battlefield.</p>
-                </div>
-                <button className="studio-btn studio-btn-primary" onClick={() => setCreating(true)}>
-                    + New Stage
-                </button>
-            </div>
+            <Toolbar
+                title="Stages"
+                subtitle="Battle maps · Open Layout to visually place units & obstacles"
+                actions={
+                    <button className="studio-btn studio-btn-primary" onClick={() => setCreating(true)}>
+                        New Stage
+                    </button>
+                }
+            />
 
             {error && <div className="studio-error">⚠ {error}</div>}
 
-            <DataTable<Stage>
-                loading={loading}
-                rows={rows}
-                columns={[
-                    { key: 'id', label: 'ID', width: '12%' },
-                    { key: 'name', label: 'Name' },
-                    { key: 'chapter', label: 'Chap', width: '6%' },
-                    { key: 'stage_order', label: 'Order', width: '6%' },
-                    {
-                        key: 'difficulty', label: 'Difficulty', width: '10%',
-                        render: r => <span className={`studio-badge badge-${r.difficulty}`}>{r.difficulty}</span>,
-                    },
-                    { key: 'max_heroes', label: 'Heroes', width: '6%' },
-                    {
-                        key: 'is_published', label: 'Status', width: '10%',
-                        render: r => r.is_published
-                            ? <span className="studio-badge badge-published">published</span>
-                            : <span className="studio-badge badge-draft">draft</span>,
-                    },
-                    {
-                        key: 'actions', label: '', width: '180px',
-                        render: r => (
-                            <div className="studio-row-actions">
-                                <button className="studio-btn studio-btn-ghost" onClick={(e) => { e.stopPropagation(); setEditing(r); }}>
-                                    Edit
-                                </button>
-                                <button className="studio-btn studio-btn-primary" onClick={(e) => { e.stopPropagation(); setOpenSubEditor(r); }}>
-                                    Layout →
-                                </button>
-                            </div>
-                        ),
-                    },
-                ]}
-            />
+            <div className="studio-card">
+                <DataTable<Stage>
+                    loading={loading}
+                    rows={paginated}
+                    columns={[
+                        { key: 'id', label: 'ID', width: '12%' },
+                        { key: 'name', label: 'Name' },
+                        { key: 'chapter', label: 'Chap', width: '6%' },
+                        { key: 'stage_order', label: 'Order', width: '6%' },
+                        {
+                            key: 'difficulty', label: 'Difficulty', width: '10%',
+                            render: r => <span className={`studio-badge badge-${r.difficulty}`}>{r.difficulty}</span>,
+                        },
+                        { key: 'max_heroes', label: 'Heroes', width: '6%' },
+                        {
+                            key: 'is_published', label: 'Status', width: '10%',
+                            render: r => r.is_published
+                                ? <span className="studio-badge badge-published">published</span>
+                                : <span className="studio-badge badge-draft">draft</span>,
+                        },
+                        {
+                            key: 'actions', label: '', width: '180px',
+                            render: r => (
+                                <div className="studio-row-actions">
+                                    <button className="studio-btn studio-btn-ghost" onClick={(e) => { e.stopPropagation(); setEditing(r); }}>
+                                        Edit
+                                    </button>
+                                    <button className="studio-btn studio-btn-primary" onClick={(e) => { e.stopPropagation(); setOpenSubEditor(r); }}>
+                                        Layout →
+                                    </button>
+                                </div>
+                            ),
+                        },
+                    ]}
+                />
+                <Pagination
+                    total={total}
+                    page={page}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                />
+            </div>
 
             <EntityEditor<Stage>
                 title={creating ? 'New Stage' : `Edit Stage: ${editing?.name ?? ''}`}
@@ -173,8 +191,8 @@ function StageLayoutEditor({ stage, onClose }: { stage: Stage; onClose: () => vo
 // ============= Obstacles =============
 
 const OBSTACLE_TYPES: Array<{ value: ObstacleType; label: string; emoji: string }> = [
-    { value: 'block', label: 'Block', emoji: '■' },
-    { value: 'water', label: 'Water', emoji: '~' },
+    { value: 'block', label: 'Block', emoji: '◼' },
+    { value: 'water', label: 'Water', emoji: '≈' },
     { value: 'mountain', label: 'Mountain', emoji: '▲' },
     { value: 'forest', label: 'Forest', emoji: '♣' },
 ];
@@ -716,6 +734,10 @@ function EnemySpawnsTab({ stage, units }: { stage: Stage; units: Unit[] }) {
                     onClose={() => setEditingOverrides(null)}
                     onSave={async v => { await stageEnemySpawnApi.save({ ...v, stage_id: stage.id }); reload(); }}
                     onDelete={editingOverrides.id ? async () => { await stageEnemySpawnApi.delete(editingOverrides.id!); reload(); } : undefined}
+                    sidePreview={(values) => {
+                        const u = unitMap.get(values.unit_id);
+                        return <SpritePreview url={u?.sprite_url} />;
+                    }}
                 />
             )}
         </div>

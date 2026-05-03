@@ -96,6 +96,18 @@ export default class Game {
     this.turnNumber = 1;
     window.gameOverlayActive = true;
 
+    // Listen for level up and exp events
+    this.handleExpGain = (e) => {
+      const { hero, amount } = e.detail;
+      this.damagePopups.addPopup(`+${amount} EXP`, hero.pixelX, hero.pixelY - 20, '#55ff55');
+    };
+    this.handleLevelUp = (e) => {
+      const { hero, statIncreases, newLevel } = e.detail;
+      this.damagePopups.addPopup(`LEVEL UP! Lv.${newLevel}`, hero.pixelX, hero.pixelY - 40, '#ffd700');
+    };
+    window.addEventListener('heroExpGain', this.handleExpGain);
+    window.addEventListener('heroLevelUp', this.handleLevelUp);
+
     // Cancellable timer registry — prevents callbacks firing after destroy
     this._timers = new Set();
     this._destroyed = false;
@@ -466,6 +478,12 @@ export default class Game {
     }
     if (this.battleScene && this.battleScene.destroy) {
       this.battleScene.destroy();
+    }
+    if (this.handleExpGain) {
+      window.removeEventListener('heroExpGain', this.handleExpGain);
+    }
+    if (this.handleLevelUp) {
+      window.removeEventListener('heroLevelUp', this.handleLevelUp);
     }
     window.gameOverlayActive = false;
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import type { FieldDef } from '../types';
 
 interface EntityEditorProps<T> {
@@ -13,10 +13,13 @@ interface EntityEditorProps<T> {
     isEdit?: boolean;
     /** ID field name to disable on edit (default: 'id'). */
     idField?: string;
+    /** Optional preview rendered to the LEFT of the form, fed live form values */
+    sidePreview?: (values: Record<string, any>) => React.ReactNode;
 }
 
 export function EntityEditor<T>({
     title, open, initial, fields, onClose, onSave, onDelete, isEdit, idField = 'id',
+    sidePreview,
 }: EntityEditorProps<T>) {
     const [form, setForm] = useState<Record<string, any>>({});
     const [saving, setSaving] = useState(false);
@@ -95,23 +98,42 @@ export function EntityEditor<T>({
 
     return (
         <div className="studio-modal-backdrop" onClick={onClose}>
-            <div className="studio-modal" onClick={e => e.stopPropagation()}>
+            <div
+                className={`studio-modal ${sidePreview ? 'studio-modal-with-side' : ''}`}
+                onClick={e => e.stopPropagation()}
+            >
                 <div className="studio-modal-header">
                     <h2>{title}</h2>
                     <button className="studio-icon-btn" onClick={onClose} aria-label="Close">×</button>
                 </div>
 
-                <div className="studio-modal-body">
-                    {error && <div className="studio-error">⚠ {error}</div>}
-                    <div className="studio-form-grid">
-                        {fields.map(f => {
+                <div className={sidePreview ? 'studio-modal-split' : 'studio-modal-body'}>
+                    {sidePreview && (
+                        <aside className="studio-modal-side">
+                            <div className="studio-modal-side-label">Preview</div>
+                            {sidePreview(form)}
+                        </aside>
+                    )}
+
+                    <div className={sidePreview ? 'studio-modal-body' : ''}>
+                        {error && <div className="studio-error">⚠ {error}</div>}
+                        <div className="studio-form-grid">
+                        {fields.map((f, i) => {
                             const w = f.width || 'full';
                             const disabled = isEdit && f.key === idField;
+                            const prev = i > 0 ? fields[i - 1] : null;
+                            const showSection = !!f.section && (!prev || prev.section !== f.section);
                             return (
-                                <div key={f.key} className={`studio-field studio-field-${w}`}>
-                                    <label>
-                                        {f.label}{f.required && <span className="req">*</span>}
-                                    </label>
+                                <Fragment key={f.key}>
+                                    {showSection && (
+                                        <div className="studio-form-section-head">
+                                            <span>{f.section}</span>
+                                        </div>
+                                    )}
+                                    <div className={`studio-field studio-field-${w}`}>
+                                        <label>
+                                            {f.label}{f.required && <span className="req" aria-label="required" />}
+                                        </label>
                                     {f.type === 'text' || f.type === 'url' ? (
                                         <input
                                             type={f.type === 'url' ? 'url' : 'text'}
@@ -165,9 +187,11 @@ export function EntityEditor<T>({
                                     {f.help && f.type !== 'boolean' && (
                                         <small className="studio-help">{f.help}</small>
                                     )}
-                                </div>
+                                    </div>
+                                </Fragment>
                             );
                         })}
+                    </div>
                     </div>
                 </div>
 

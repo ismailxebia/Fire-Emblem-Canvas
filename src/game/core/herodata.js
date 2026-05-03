@@ -20,7 +20,8 @@ export async function loadHeroData() {
         data.spd,
         data.def,
         data.res,
-        data.attackRange
+        data.attackRange,
+        data.growthRates || { hp: 50, atk: 40, spd: 40, def: 30, res: 30 }
       );
     }));
   } catch (error) {

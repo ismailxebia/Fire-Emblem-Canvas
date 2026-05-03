@@ -56,12 +56,22 @@ export class Hero extends Unit {
 
     // Properti tambahan dari JSON
     this.level = level;
+    this.exp = 0; // Current EXP
     this.star = star;
     this.rarity = star; // For UI compatibility
     this.spd = spd;
     this.speed = spd; // Alias for consistency
     this.def = def;
     this.res = res;
+
+    // Growth rates (defaulting if not provided)
+    this.growthRates = {
+        hp: 50,
+        atk: 40,
+        spd: 40,
+        def: 30,
+        res: 30
+    };
 
     // Pemuatan spritesheet terpadu
     this.spriteUrl = spriteUrl;
@@ -93,6 +103,58 @@ export class Hero extends Unit {
 
     // Flag untuk menandai apakah hero sudah bertindak pada turn ini.
     this.actionTaken = false;
+  }
+
+  // Menambahkan EXP dan mengecek level up
+  gainExp(amount) {
+    if (this.level >= 40) return; // Max level 40
+    this.exp += amount;
+    console.log(`${this.name} gained ${amount} EXP. Total: ${this.exp}/100`);
+    
+    // Dispatch event EXP Gain
+    window.dispatchEvent(new CustomEvent('heroExpGain', { detail: { hero: this, amount } }));
+
+    while (this.exp >= 100 && this.level < 40) {
+      this.exp -= 100;
+      this.levelUp();
+    }
+  }
+
+  // Proses level up dan stat growth
+  levelUp() {
+    this.level += 1;
+    let statIncreases = [];
+    
+    // Fungsi bantuan RNG untuk stat growth
+    const rollStat = (statName, growthRate) => {
+      if (Math.random() * 100 < growthRate) {
+        statIncreases.push(statName);
+        return 1;
+      }
+      return 0;
+    };
+
+    const hpGain = rollStat('HP', this.growthRates.hp);
+    const atkGain = rollStat('ATK', this.growthRates.atk);
+    const spdGain = rollStat('SPD', this.growthRates.spd);
+    const defGain = rollStat('DEF', this.growthRates.def);
+    const resGain = rollStat('RES', this.growthRates.res);
+
+    this.maxHealth += hpGain;
+    this.health += hpGain; // Heal the amount gained
+    this.attack += atkGain;
+    this.spd += spdGain;
+    this.speed = this.spd;
+    this.def += defGain;
+    this.res += resGain;
+
+    console.log(`🎉 ${this.name} leveled up to Lv.${this.level}!`);
+    console.log(`Stat increases: ${statIncreases.length > 0 ? statIncreases.join(', ') : 'None... (Unlucky!)'}`);
+
+    // Dispatch event Level Up for UI
+    window.dispatchEvent(new CustomEvent('heroLevelUp', { 
+        detail: { hero: this, statIncreases, newLevel: this.level } 
+    }));
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)

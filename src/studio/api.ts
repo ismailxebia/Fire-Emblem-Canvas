@@ -128,3 +128,12 @@ export const stageObstacleApi = {
     },
     delete: (id: number) => deleteOne('stage_obstacles', 'id', id),
 };
+
+export const playerUnitsApi = {
+    list: () => listAll<any>('player_units', 'id'),
+    save: (data: any) => upsertOne('player_units', data),
+    update: async (id: number, data: Partial<any>) => {
+        const { error } = await supabase.from('player_units').update(data).eq('id', id);
+        if (error) throw error;
+    }
+};

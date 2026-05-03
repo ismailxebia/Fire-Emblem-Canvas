@@ -171,7 +171,14 @@ export async function loadHeroesFromSupabase(stageData: any, maxHeroes: number =
                 data.base_spd,
                 data.base_def,
                 data.base_res,
-                data.attack_range
+                data.attack_range,
+                {
+                    hp: data.growth_hp ?? 50,
+                    atk: data.growth_atk ?? 40,
+                    spd: data.growth_spd ?? 40,
+                    def: data.growth_def ?? 30,
+                    res: data.growth_res ?? 30
+                }
             );
         });
 
