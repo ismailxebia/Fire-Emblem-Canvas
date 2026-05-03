@@ -60,12 +60,18 @@ export function updateProfileStatus(unit) {
   const hpFill = document.querySelector('.hpFill');
   const hpValue = document.querySelector('.hpValue');
   const stats = document.querySelectorAll('.stat');
+  const levelTag = document.querySelector('.levelTag');
 
   // Update Portrait
   if (unit.portraitUrl) {
     portrait.src = unit.portraitUrl;
   } else {
     portrait.src = '';
+  }
+
+  // Update Level
+  if (levelTag) {
+    levelTag.textContent = `LV ${String(unit.level || 1).padStart(2, '0')}`;
   }
 
   // Update Name
