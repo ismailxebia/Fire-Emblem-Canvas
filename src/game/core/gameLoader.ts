@@ -157,7 +157,7 @@ export async function loadHeroesFromSupabase(stageData: any, maxHeroes: number =
         const heroes = heroUnits.map((data, index) => {
             const position = stageData.heroPositions[index] || { col: 0, row: 0 };
 
-            return new Hero(
+            const hero = new Hero(
                 data.name,
                 position.col,
                 position.row,
@@ -180,6 +180,8 @@ export async function loadHeroesFromSupabase(stageData: any, maxHeroes: number =
                     res: data.growth_res ?? 30
                 }
             );
+            (hero as any).unitId = data.id;
+            return hero;
         });
 
         console.log(`[GameLoader] Loaded ${heroes.length} heroes`);

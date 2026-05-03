@@ -730,6 +730,819 @@ body,
 }
 
 /* ===========================================================
+   EXP / LEVEL-UP SUMMARY (Brigandine-style)
+   =========================================================== */
+#expSummary {
+    position: fixed;
+    inset: 0;
+    z-index: 1900;
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 16px 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#expSummary.active,
+#expSummary.fadeOut {
+    pointer-events: auto;
+}
+
+#expSummary.active {
+    opacity: 1;
+}
+
+#expSummary.fadeOut {
+    opacity: 0;
+}
+
+.expDim {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at center bottom, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.55) 100%);
+    pointer-events: none;
+}
+
+.expCard {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 460px;
+    background:
+        linear-gradient(180deg, rgba(28, 36, 56, 0.97) 0%, rgba(13, 19, 32, 0.98) 100%);
+    border: 1px solid rgba(216, 184, 106, 0.45);
+    border-radius: 6px;
+    padding: 14px 16px 12px;
+    color: var(--octo-text, #e9e4d4);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        0 18px 48px rgba(0, 0, 0, 0.55);
+    transform: translateY(28px) scale(0.97);
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#expSummary.active .expCard {
+    transform: translateY(0) scale(1);
+}
+
+#expSummary.fadeOut .expCard {
+    transform: translateY(12px) scale(0.99);
+}
+
+/* Top gold accent strip — matches the rest of the game UI */
+.expCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8px;
+    right: 8px;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(240, 210, 124, 0.85) 50%,
+            transparent);
+}
+
+.expCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(216, 184, 106, 0.18);
+}
+
+.expPortrait {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(216, 184, 106, 0.35);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.expPortrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+    display: block;
+}
+
+.expHeaderText {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.expCardTitle {
+    font-family: 'Jersey 20', cursive;
+    font-size: 12px;
+    color: rgba(240, 210, 124, 0.85);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+#expSummary.hasLevelUp .expCardTitle {
+    color: #ffd54f;
+    text-shadow: 0 0 12px rgba(255, 213, 79, 0.5);
+}
+
+.expCardName {
+    font-family: 'Jersey 20', cursive;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.expLevelBadge {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(216, 184, 106, 0.4);
+    color: #f0d27c;
+    font-family: 'Jersey 20', cursive;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+/* === EXP bar === */
+.expBarRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.expBarLabel {
+    font-family: 'Jersey 20', cursive;
+    color: rgba(240, 210, 124, 0.9);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    width: 28px;
+}
+
+.expBarTrack {
+    flex: 1;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 1px;
+    border: 1px solid rgba(216, 184, 106, 0.3);
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+    position: relative;
+}
+
+.expBarFill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(180deg, #7adf8d 0%, #2d8c3e 100%);
+    box-shadow: 0 0 8px rgba(122, 223, 141, 0.5);
+    position: relative;
+}
+
+.expBarFill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
+}
+
+#expSummary.hasLevelUp .expBarFill {
+    background: linear-gradient(180deg, #ffe27a 0%, #d8b86a 100%);
+    box-shadow: 0 0 12px rgba(216, 184, 106, 0.7);
+}
+
+.expBarValue {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.78);
+    font-feature-settings: "tnum";
+    width: 64px;
+    text-align: right;
+}
+
+/* === Breakdown list === */
+.expBreakdown {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    font-family: 'Jersey 20', cursive;
+}
+
+.expBreakdown li {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.78);
+    letter-spacing: 0.5px;
+}
+
+.expBreakdown li.expHitTotal {
+    border-top: 1px dashed rgba(216, 184, 106, 0.25);
+    margin-top: 4px;
+    padding-top: 5px;
+    color: #fff;
+}
+
+.expHitLabel {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.expHitValue {
+    color: #7adf8d;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+}
+
+#expSummary.hasLevelUp .expHitValue {
+    color: #f0d27c;
+}
+
+/* === Level up block (hidden unless level up triggered) === */
+.expLevelUpBlock {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(216, 184, 106, 0.25);
+}
+
+.expLevelUpBlock.visible {
+    display: block;
+    animation: expLvBlockIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+}
+
+@keyframes expLvBlockIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.expLevelUpHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Jersey 20', cursive;
+    color: #ffd54f;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-shadow: 0 0 14px rgba(255, 213, 79, 0.45);
+}
+
+.expLevelUpHeader .lvBadge {
+    color: #ffe27a;
+    font-size: 13px;
+}
+
+.expLevelUpHeader .lvArrow {
+    margin-left: auto;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+    text-shadow: none;
+}
+
+.expStatChips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.expStatChip {
+    --chip-color: #d8b86a;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--chip-color);
+    border-radius: 3px;
+    font-family: 'Jersey 20', cursive;
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.6px;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--chip-color) 35%, transparent);
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+    animation: expChipIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.expStatChip.neutral {
+    --chip-color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.6);
+    box-shadow: none;
+}
+
+.expStatChip .chipLabel {
+    color: var(--chip-color);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.expStatChip .chipPlus {
+    color: #fff;
+    font-feature-settings: "tnum";
+}
+
+@keyframes expChipIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.expHint {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+    font-family: 'Jersey 20', cursive;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+/* ===========================================================
+   COMPACT VICTORY BANNER (top toast)
+   =========================================================== */
+#victoryBanner {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 16px);
+    left: 50%;
+    transform: translate(-50%, -120%);
+    z-index: 1960;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg, rgba(28, 36, 56, 0.96) 0%, rgba(13, 19, 32, 0.98) 100%);
+    border: 1px solid rgba(216, 184, 106, 0.55);
+    border-radius: 6px;
+    padding: 12px 28px;
+    color: #fff;
+    text-align: center;
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        0 14px 36px rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    transition:
+        transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    min-width: 240px;
+    max-width: calc(100vw - 32px);
+}
+
+#victoryBanner.active {
+    transform: translate(-50%, 0);
+    opacity: 1;
+}
+
+#victoryBanner.fadeOut {
+    transform: translate(-50%, -8px);
+    opacity: 0;
+}
+
+#victoryBanner .vbDecor {
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(240, 210, 124, 0.85) 50%,
+            transparent);
+    opacity: 0.7;
+    margin: 0 6px;
+}
+
+#victoryBanner .vbDecorTop {
+    margin-bottom: 6px;
+}
+
+#victoryBanner .vbDecorBottom {
+    margin-top: 8px;
+}
+
+#victoryBanner .vbTitle {
+    font-family: 'Jersey 20', cursive;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    color: #ffd54f;
+    text-shadow:
+        0 0 14px rgba(255, 213, 79, 0.55),
+        0 2px 4px rgba(0, 0, 0, 0.9);
+    line-height: 1;
+}
+
+#victoryBanner .vbExp {
+    font-family: 'Jersey 20', cursive;
+    font-size: 12px;
+    color: rgba(240, 210, 124, 0.9);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 1.3;
+    margin-top: 4px;
+}
+
+/* ===========================================================
+   (Legacy) VICTORY MODAL — full hero list, no longer used
+   =========================================================== */
+#victoryBonus {
+    position: fixed;
+    inset: 0;
+    z-index: 1950;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#victoryBonus.active,
+#victoryBonus.fadeOut {
+    pointer-events: auto;
+}
+
+#victoryBonus.active {
+    opacity: 1;
+}
+
+#victoryBonus.fadeOut {
+    opacity: 0;
+}
+
+.victoryDim {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.78) 100%);
+    pointer-events: none;
+}
+
+.victoryCard {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    max-height: 86vh;
+    overflow-y: auto;
+    background:
+        linear-gradient(180deg, rgba(28, 36, 56, 0.97) 0%, rgba(13, 19, 32, 0.98) 100%);
+    border: 1px solid rgba(216, 184, 106, 0.5);
+    border-radius: 6px;
+    padding: 18px;
+    color: var(--octo-text, #e9e4d4);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        0 24px 64px rgba(0, 0, 0, 0.6);
+    transform: translateY(20px) scale(0.96);
+    transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#victoryBonus.active .victoryCard {
+    transform: translateY(0) scale(1);
+}
+
+.victoryCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8px;
+    right: 8px;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(240, 210, 124, 0.95) 50%,
+            transparent);
+}
+
+.victoryHeader {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.victoryBanner {
+    font-family: 'Jersey 20', cursive;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #ffd54f;
+    text-shadow:
+        0 0 16px rgba(255, 213, 79, 0.6),
+        0 2px 4px rgba(0, 0, 0, 0.9);
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.victoryStageName {
+    font-family: 'Jersey 20', cursive;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.victoryHeroList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.victoryHeroCard {
+    display: flex;
+    gap: 12px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(216, 184, 106, 0.18);
+    border-radius: 4px;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: victoryCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.victoryHeroCard.hasLevelUp {
+    border-color: rgba(255, 213, 79, 0.45);
+    background: linear-gradient(180deg, rgba(255, 213, 79, 0.06), rgba(0, 0, 0, 0.4));
+    box-shadow: 0 0 18px rgba(255, 213, 79, 0.15);
+}
+
+@keyframes victoryCardIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.victoryHeroPortrait {
+    width: 44px;
+    height: 44px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(216, 184, 106, 0.35);
+    flex-shrink: 0;
+}
+
+.victoryHeroPortrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+    display: block;
+}
+
+.victoryHeroInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.victoryHeroNameRow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+
+.victoryHeroName {
+    font-family: 'Jersey 20', cursive;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+.victoryHeroLv {
+    margin-left: auto;
+    font-family: 'Jersey 20', cursive;
+    font-size: 11px;
+    color: #f0d27c;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(216, 184, 106, 0.4);
+    padding: 1px 6px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+}
+
+.victoryHeroExpRow {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: 'Jersey 20', cursive;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.78);
+    margin-bottom: 4px;
+}
+
+.victoryHeroExpLabel {
+    color: rgba(240, 210, 124, 0.85);
+    letter-spacing: 1px;
+}
+
+.victoryHeroExpValue {
+    color: #7adf8d;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+}
+
+.victoryHeroCard.hasLevelUp .victoryHeroExpValue {
+    color: #ffd54f;
+}
+
+.victoryHeroLvBlock {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(216, 184, 106, 0.2);
+}
+
+.victoryHeroLvHeader {
+    font-family: 'Jersey 20', cursive;
+    color: #ffd54f;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    text-shadow: 0 0 10px rgba(255, 213, 79, 0.4);
+}
+
+.victoryHeroLvHeader .lvBadge {
+    color: #ffe27a;
+    margin-right: 4px;
+}
+
+.victoryStatChips {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.victoryStatChip {
+    --chip-color: #d8b86a;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--chip-color);
+    border-radius: 3px;
+    font-family: 'Jersey 20', cursive;
+    color: #fff;
+    font-size: 12px;
+}
+
+.victoryStatChip .chipLabel {
+    color: var(--chip-color);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+}
+
+.victoryStatChip .chipPlus {
+    font-feature-settings: "tnum";
+}
+
+.victoryStatChip.neutral {
+    --chip-color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.victoryHint {
+    text-align: center;
+    font-family: 'Jersey 20', cursive;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding-top: 4px;
+}
+
+/* ===========================================================
+   FADE-OUT TRANSITION (cinematic → base menu)
+   =========================================================== */
+#victoryFade {
+    position: fixed;
+    inset: 0;
+    z-index: 2200;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.7s cubic-bezier(0.55, 0, 0.4, 1);
+}
+
+#victoryFade.active {
+    opacity: 1;
+}
+
+/* ===========================================================
+   BASE MENU STUB (Coming Soon screen)
+   =========================================================== */
+#baseMenu {
+    position: fixed;
+    inset: 0;
+    z-index: 2300;
+    background:
+        radial-gradient(ellipse at top, rgba(28, 36, 56, 1) 0%, #0a0d14 80%);
+    color: var(--octo-text, #e9e4d4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+}
+
+#baseMenu.active {
+    display: flex;
+    animation: baseMenuFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes baseMenuFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.baseMenuInner {
+    max-width: 360px;
+}
+
+.baseMenuTitle {
+    font-family: 'Jersey 20', cursive;
+    font-size: 32px;
+    color: #f0d27c;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(216, 184, 106, 0.4);
+    margin-bottom: 8px;
+}
+
+.baseMenuSubtitle {
+    font-family: 'Trirong', serif;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 1px;
+    margin-bottom: 32px;
+}
+
+.baseMenuBtn {
+    display: inline-block;
+    background: linear-gradient(180deg, #1c2438 0%, #0d1320 100%);
+    color: #f0d27c;
+    border: 1px solid rgba(216, 184, 106, 0.5);
+    padding: 12px 28px;
+    border-radius: 4px;
+    font-family: 'Jersey 20', cursive;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: 44px;
+}
+
+.baseMenuBtn:hover,
+.baseMenuBtn:active {
+    color: #fff;
+    border-color: var(--octo-gold-bright, #f0d27c);
+    box-shadow: 0 0 16px rgba(216, 184, 106, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ===========================================================
    LOADING SCREEN
    =========================================================== */
 #loadingScreen {

@@ -4,6 +4,7 @@ import Game from '../game/game.js';
 // @ts-ignore
 import { setupActionMenu } from '../game/ui.js';
 import { createGame } from '../game/gameFactory';
+import { supabase } from '../lib/supabase';
 
 const GameComponent: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,6 +71,79 @@ const GameComponent: React.FC = () => {
                     <div className="turnDecor turnDecorTop" aria-hidden="true"></div>
                     <div className="turnText"></div>
                     <div className="turnDecor turnDecorBottom" aria-hidden="true"></div>
+                </div>
+            </div>
+
+            {/* Compact victory banner — slides down from top, auto-dismisses */}
+            <div id="victoryBanner" aria-hidden="true">
+                <div className="vbDecor vbDecorTop"></div>
+                <div className="vbTitle">★ VICTORY ★</div>
+                <div className="vbExp" id="vbExpText"></div>
+                <div className="vbDecor vbDecorBottom"></div>
+            </div>
+
+            {/* Fade-out overlay between cinematic and base menu */}
+            <div id="victoryFade" aria-hidden="true"></div>
+
+            {/* Base menu stub — placeholder until proper hub is built */}
+            <div id="baseMenu" aria-hidden="true">
+                <div className="baseMenuInner">
+                    <div className="baseMenuTitle">Base Camp</div>
+                    <div className="baseMenuSubtitle">Coming soon</div>
+                    <button
+                        type="button"
+                        className="baseMenuBtn"
+                        onClick={() => {
+                            const el = document.getElementById('baseMenu');
+                            el?.classList.remove('active');
+                            // @ts-ignore
+                            if (window.gameInstance?.victorySequence) {
+                                // @ts-ignore
+                                window.gameInstance.victorySequence._finish();
+                            }
+                            window.location.reload();
+                        }}
+                    >
+                        Return to Battle
+                    </button>
+                </div>
+            </div>
+
+            {/* Brigandine-style EXP / level-up summary */}
+            <div id="expSummary" aria-hidden="true">
+                <div className="expDim"></div>
+                <div className="expCard">
+                    <div className="expCardHeader">
+                        <div className="expPortrait">
+                            <img id="expPortraitImg" alt="" />
+                        </div>
+                        <div className="expHeaderText">
+                            <div className="expCardTitle" id="expCardTitle">EXP GAINED</div>
+                            <div className="expCardName" id="expCardName"></div>
+                        </div>
+                        <div className="expLevelBadge" id="expLevelBadge"></div>
+                    </div>
+
+                    <div className="expBarRow">
+                        <div className="expBarLabel">EXP</div>
+                        <div className="expBarTrack">
+                            <div className="expBarFill" id="expBarFill"></div>
+                        </div>
+                        <div className="expBarValue" id="expBarValue">0 / 100</div>
+                    </div>
+
+                    <ul className="expBreakdown" id="expBreakdown"></ul>
+
+                    <div className="expLevelUpBlock" id="expLevelUpBlock">
+                        <div className="expLevelUpHeader">
+                            <span className="lvBadge">★</span>
+                            <span>LEVEL UP</span>
+                            <span className="lvArrow" id="expLvArrow"></span>
+                        </div>
+                        <ul className="expStatChips" id="expStatChips"></ul>
+                    </div>
+
+                    <div className="expHint" id="expHint">Tap to continue</div>
                 </div>
             </div>
         </>
@@ -183,6 +257,38 @@ const GameComponent: React.FC = () => {
             }
         };
         document.addEventListener('visibilitychange', handleVisibility);
+
+        const handleGameVictory = async (e: Event) => {
+            const customEvent = e as CustomEvent;
+            const heroResults = customEvent.detail.results;
+            console.log("[GameComponent] Victory! Syncing EXP to Supabase...");
+            try {
+                const { data: userData } = await supabase.auth.getUser();
+                if (!userData?.user) return;
+                
+                for (const result of heroResults) {
+                    const hero = result.hero;
+                    if (!hero.unitId) continue;
+                    
+                    await supabase.from('player_units')
+                        .update({
+                            current_level: hero.level,
+                            current_exp: hero.exp,
+                            current_hp: hero.maxHealth,
+                            current_atk: hero.attack,
+                            current_spd: hero.spd,
+                            current_def: hero.def,
+                            current_res: hero.res
+                        })
+                        .eq('unit_id', hero.unitId)
+                        .eq('player_id', userData.user.id);
+                }
+                console.log("[GameComponent] Successfully synced progress to Supabase.");
+            } catch (err) {
+                console.error("[GameComponent] Error syncing progress to Supabase:", err);
+            }
+        };
+        window.addEventListener('gameVictory', handleGameVictory);
 
         // Capacitor: hardware back button + app state pause
         let appListeners: Array<{ remove: () => void }> = [];

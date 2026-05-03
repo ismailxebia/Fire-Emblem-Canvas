@@ -47,7 +47,8 @@ export class Hero extends Unit {
     spd,
     def,
     res,
-    attackRange = 1
+    attackRange = 1,
+    growthRates = { hp: 50, atk: 40, spd: 40, def: 30, res: 30 }
   ) {
     super(name, col, row, health, attack);
     this.movementRange = movementRange;
@@ -64,14 +65,8 @@ export class Hero extends Unit {
     this.def = def;
     this.res = res;
 
-    // Growth rates (defaulting if not provided)
-    this.growthRates = {
-        hp: 50,
-        atk: 40,
-        spd: 40,
-        def: 30,
-        res: 30
-    };
+    // Growth rates: prefer Supabase-provided values, fall back to defaults
+    this.growthRates = growthRates;
 
     // Pemuatan spritesheet terpadu
     this.spriteUrl = spriteUrl;
@@ -105,19 +100,21 @@ export class Hero extends Unit {
     this.actionTaken = false;
   }
 
-  // Menambahkan EXP dan mengecek level up
+  // Menambahkan EXP dan mengecek level up.
+  // Returns { gained, levelUps: [{newLevel, statIncreases, gains}] }
+  // so callers (e.g. summary screen) can show what happened in this gain.
   gainExp(amount) {
-    if (this.level >= 40) return; // Max level 40
+    if (this.level >= 40) return { gained: 0, levelUps: [] };
     this.exp += amount;
-    console.log(`${this.name} gained ${amount} EXP. Total: ${this.exp}/100`);
-    
-    // Dispatch event EXP Gain
+
     window.dispatchEvent(new CustomEvent('heroExpGain', { detail: { hero: this, amount } }));
 
+    const levelUps = [];
     while (this.exp >= 100 && this.level < 40) {
       this.exp -= 100;
-      this.levelUp();
+      levelUps.push(this.levelUp());
     }
+    return { gained: amount, levelUps };
   }
 
   // Proses level up dan stat growth
@@ -148,13 +145,18 @@ export class Hero extends Unit {
     this.def += defGain;
     this.res += resGain;
 
-    console.log(`🎉 ${this.name} leveled up to Lv.${this.level}!`);
-    console.log(`Stat increases: ${statIncreases.length > 0 ? statIncreases.join(', ') : 'None... (Unlucky!)'}`);
+    const result = {
+      newLevel: this.level,
+      statIncreases,
+      gains: { hp: hpGain, atk: atkGain, spd: spdGain, def: defGain, res: resGain },
+    };
 
-    // Dispatch event Level Up for UI
-    window.dispatchEvent(new CustomEvent('heroLevelUp', { 
-        detail: { hero: this, statIncreases, newLevel: this.level } 
+    // Dispatch event Level Up for UI listeners
+    window.dispatchEvent(new CustomEvent('heroLevelUp', {
+      detail: { hero: this, ...result }
     }));
+
+    return result;
   }
 
   // Fungsi easing untuk interpolasi (easeInOutQuad)

@@ -1,5 +1,5 @@
 
-import { updateProfileStatus } from '../ui.js';
+import { updateProfileStatus, showExpSummary } from '../ui.js';
 import { Haptics, ImpactStyle } from '../utils/haptics.js';
 import { positionMenuNearUnitDeferred, positionMenuAtCanvasBottomCenterDeferred } from '../utils/menuPosition.js';
 
@@ -296,16 +296,18 @@ export class ActionSystem {
         // Calculate Counter Damage
         let counterDamage = null;
         const dist = Math.abs(hero.col - target.col) + Math.abs(hero.row - target.row);
-        // Enemy can counter if in range
         const range = target.attackRange || 1;
         if (dist <= range) {
-            // Enemy counter is assumed physical for now
             counterDamage = Math.max(0, target.attack - hero.def);
         }
 
-        // Trigger Battle Scene
         this.hideAllMenus();
         this.game.battleScene.start(hero, target, damage, counterDamage, () => {
+            // Snapshot before applying damage so summary can show before/after
+            const beforeExp = hero.exp ?? 0;
+            const beforeLevel = hero.level ?? 1;
+            const beforeMaxHp = hero.maxHealth ?? hero.health;
+
             target.health = Math.max(0, target.health - damage);
             this._spawnDamagePopup(target, damage);
             Haptics.impact(damage > 0 ? ImpactStyle.Medium : ImpactStyle.Light);
@@ -318,19 +320,70 @@ export class ActionSystem {
             updateProfileStatus(hero);
             updateProfileStatus(target);
 
+            // ===== EXP / Level up =====
+            // Only heroes gain exp, only on hero attacks
+            const expEvents = { hits: [], levelUps: [] };
+            if (this.game.battle.heroes.includes(hero) && typeof hero.gainExp === 'function' && damage > 0) {
+                // Base exp for connecting an attack
+                const hit = hero.gainExp(10);
+                expEvents.hits.push({ amount: 10, source: 'attack' });
+                if (hit?.levelUps?.length) expEvents.levelUps.push(...hit.levelUps);
+
+                // Bonus exp for kill, scaled by level diff
+                if (target.health <= 0) {
+                    const lvDiff = (target.level || 1) - (hero.level || 1);
+                    const killExp = Math.max(15, 30 + lvDiff * 3);
+                    const kill = hero.gainExp(killExp);
+                    expEvents.hits.push({ amount: killExp, source: 'kill' });
+                    if (kill?.levelUps?.length) expEvents.levelUps.push(...kill.levelUps);
+                }
+            }
+
             if (target.health <= 0) {
                 Haptics.impact(ImpactStyle.Heavy);
                 target.startDeath();
                 this.game.battle.invalidateSpatialIndex();
             }
-
             if (hero.health <= 0) {
                 Haptics.impact(ImpactStyle.Heavy);
                 hero.startDeath();
                 this.game.battle.invalidateSpatialIndex();
             }
 
-            this.finalizeAction();
+            const totalExp = expEvents.hits.reduce((s, h) => s + h.amount, 0);
+            const showSummary = totalExp > 0;
+
+            // Detect victory: all enemies dead or dying → kick off cinematic
+            const enemiesLeft = this.game.battle.enemies.some(
+                e => e.health > 0 && !e.isDying && !e.dead
+            );
+
+            const triggerVictoryIfNeeded = () => {
+                if (!enemiesLeft && this.game.victorySequence && !this.game.victorySequence.active) {
+                    this.game.victorySequence.start({
+                        stageName: this.game.stageData?.battleName,
+                    });
+                }
+            };
+
+            const finish = () => {
+                this.finalizeAction();
+                triggerVictoryIfNeeded();
+            };
+
+            if (showSummary) {
+                showExpSummary({
+                    hero,
+                    beforeExp,
+                    beforeLevel,
+                    beforeMaxHp,
+                    hits: expEvents.hits,
+                    levelUps: expEvents.levelUps,
+                    onClose: finish,
+                });
+            } else {
+                finish();
+            }
         });
     }
 

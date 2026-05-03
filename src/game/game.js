@@ -10,6 +10,7 @@ import { showTurnOverlay, updateProfileStatus, setupActionMenu } from './ui.js';
 import { AISystem } from './core/ai_system.js';
 import { ActionSystem, ActionState } from './core/action_system.js';
 import { BattleScene } from './core/battle_scene.js';
+import { VictorySequence } from './core/victorySequence.js';
 
 export default class Game {
   /**
@@ -27,6 +28,12 @@ export default class Game {
     this.camera = { x: 0, y: 0 };
     this.cameraVelocity = { x: 0, y: 0 };
     this.isDraggingCamera = false;
+
+    // Cinematic camera transform — applied on top of camera.x/y in render.
+    // scale=1, skew=0 means "no effect". Used by victory sequence for drama.
+    this.cameraTransform = { scale: 1, skewX: 0, skewY: 0 };
+    this.cameraTransformTarget = { scale: 1, skewX: 0, skewY: 0 };
+    this.cameraPanTarget = null; // {x, y} when active; camera lerps toward it
 
     // Use pre-loaded data if available, otherwise fall back to local JSON
     if (battleData) {
@@ -58,12 +65,15 @@ export default class Game {
     this.aiSystem = new AISystem(this.battle, this.grid);
     this.actionSystem = new ActionSystem(this);
     this.battleScene = new BattleScene(this);
+    this.victorySequence = new VictorySequence(this);
 
     // Initialize units - use preloaded or load async
     this._initializeUnits();
 
     this.cleanupInput = handleInput(this);
-    setupActionMenu(this); // Move setupActionMenu here to ensure game is initialized
+    // Note: setupActionMenu is called from Game.tsx after gameInstance is set —
+    // calling it here too can race with React DOM commit (StrictMode double-mount,
+    // gameFactory error path, etc), causing addEventListener-of-null errors.
 
     const stageWidth = this.grid.stageWidth || canvas.width;
     const stageHeight = this.grid.stageHeight || canvas.height;
@@ -96,14 +106,29 @@ export default class Game {
     this.turnNumber = 1;
     window.gameOverlayActive = true;
 
-    // Listen for level up and exp events
+    // Listen for EXP / level-up events. Floating popups are kept lightweight;
+    // the dramatic Brigandine-style summary is shown by action_system after attack.
     this.handleExpGain = (e) => {
+      if (!this.damagePopups) return;
       const { hero, amount } = e.detail;
-      this.damagePopups.addPopup(`+${amount} EXP`, hero.pixelX, hero.pixelY - 20, '#55ff55');
+      const tile = this.grid.getCellPosition(hero.col, hero.row);
+      this.damagePopups.spawn(
+        tile.x + this.grid.tileSize / 2,
+        tile.y,
+        `+${amount} EXP`,
+        { color: '#7fffa0', fontSize: 13, duration: 1100, riseDistance: 28 }
+      );
     };
     this.handleLevelUp = (e) => {
-      const { hero, statIncreases, newLevel } = e.detail;
-      this.damagePopups.addPopup(`LEVEL UP! Lv.${newLevel}`, hero.pixelX, hero.pixelY - 40, '#ffd700');
+      if (!this.damagePopups) return;
+      const { hero, newLevel } = e.detail;
+      const tile = this.grid.getCellPosition(hero.col, hero.row);
+      this.damagePopups.spawn(
+        tile.x + this.grid.tileSize / 2,
+        tile.y - 16,
+        `LEVEL UP · Lv ${newLevel}`,
+        { color: '#ffd54f', fontSize: 16, duration: 1500, riseDistance: 36, isCrit: true }
+      );
     };
     window.addEventListener('heroExpGain', this.handleExpGain);
     window.addEventListener('heroLevelUp', this.handleLevelUp);
@@ -277,6 +302,13 @@ export default class Game {
       this.turnNumber++;
       this.battle.heroes.forEach(hero => hero.actionTaken = false);
       this.battle.enemies.forEach(enemy => enemy.actionTaken = false);
+
+      // Defensive: ensure no stale overlay panels are blocking input
+      const expS = document.getElementById('expSummary');
+      if (expS) expS.classList.remove('active', 'fadeOut');
+      const victS = document.getElementById('victoryBonus');
+      if (victS) victS.classList.remove('active', 'fadeOut');
+
       window.gameOverlayActive = true;
       showTurnOverlay(`TURN ${this.turnNumber}`);
       this._setTimeout(() => {
@@ -357,7 +389,42 @@ export default class Game {
     if (this.damagePopups) {
       this.damagePopups.update(deltaTime);
     }
+    if (this.victorySequence) {
+      this.victorySequence.update(deltaTime);
+    }
 
+    // === Cinematic camera updates ===
+    // Slow & buttery lerp on transform — ~600ms half-life feels intentional
+    // (Octopath-style smooth scale-in instead of snap)
+    {
+      const lerp = 1 - Math.pow(0.5, deltaTime / 600);
+      const t = this.cameraTransform;
+      const tt = this.cameraTransformTarget;
+      t.scale += (tt.scale - t.scale) * lerp;
+      t.skewX += (tt.skewX - t.skewX) * lerp;
+      t.skewY += (tt.skewY - t.skewY) * lerp;
+      if (Math.abs(tt.scale - t.scale) < 0.001) t.scale = tt.scale;
+      if (Math.abs(tt.skewX - t.skewX) < 0.0005) t.skewX = tt.skewX;
+      if (Math.abs(tt.skewY - t.skewY) < 0.0005) t.skewY = tt.skewY;
+    }
+
+    // Smoothly pan camera toward target (used by victory cinematic).
+    // ~450ms half-life — fast enough to land before hold timer, slow enough
+    // to read as a deliberate camera move.
+    if (this.cameraPanTarget) {
+      const panLerp = 1 - Math.pow(0.5, deltaTime / 450);
+      this.camera.x += (this.cameraPanTarget.x - this.camera.x) * panLerp;
+      this.camera.y += (this.cameraPanTarget.y - this.camera.y) * panLerp;
+      if (
+        Math.abs(this.cameraPanTarget.x - this.camera.x) < 0.5 &&
+        Math.abs(this.cameraPanTarget.y - this.camera.y) < 0.5
+      ) {
+        this.camera.x = this.cameraPanTarget.x;
+        this.camera.y = this.cameraPanTarget.y;
+        this.cameraPanTarget = null;
+      }
+      // Pan target overrides inertia — skip inertia block
+    } else
     // Camera inertia: when finger is up, decay velocity smoothly
     if (!this.isDraggingCamera) {
       const vx = this.cameraVelocity.x;
@@ -419,9 +486,24 @@ export default class Game {
     // Clear canvas using logical dimensions (context is already scaled)
     ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
-    // Draw background
+    // === Cinematic transform (Octopath HD-2D split) ===
+    //   Background:    zoom + skew (perspective)
+    //   Foreground:    zoom only — sprites stay flat/upright
+    const t = this.cameraTransform;
+    const hasZoom = Math.abs(t.scale - 1) > 0.001;
+    const hasSkew = Math.abs(t.skewX) > 0.001 || Math.abs(t.skewY) > 0.001;
+    const cx = logicalWidth / 2;
+    const cy = logicalHeight / 2;
+
+    // ---- Background pass ----
+    ctx.save();
+    if (hasZoom || hasSkew) {
+      ctx.translate(cx, cy);
+      if (hasZoom) ctx.scale(t.scale, t.scale);
+      if (hasSkew) ctx.transform(1, t.skewY, t.skewX, 1, 0, 0);
+      ctx.translate(-cx, -cy);
+    }
     if (this.backgroundImage.complete && this.backgroundImage.naturalWidth > 0) {
-      // Simple cover logic using logical dimensions
       const scale = Math.max(logicalWidth / this.backgroundImage.width, logicalHeight / this.backgroundImage.height);
       const w = this.backgroundImage.width * scale;
       const h = this.backgroundImage.height * scale;
@@ -429,6 +511,16 @@ export default class Game {
     } else {
       ctx.fillStyle = '#333';
       ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+    }
+    ctx.restore();
+
+    // ---- Foreground pass (zoom only, no skew — keeps sprites upright) ----
+    const wrapForeground = hasZoom; // skip extra save if no zoom
+    if (wrapForeground) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(t.scale, t.scale);
+      ctx.translate(-cx, -cy);
     }
 
     // Draw grid (no-op currently)
@@ -466,6 +558,8 @@ export default class Game {
     if (this.battleScene && this.battleScene.active) {
       this.battleScene.render(ctx);
     }
+
+    if (wrapForeground) ctx.restore();
   }
   destroy() {
     this._destroyed = true;

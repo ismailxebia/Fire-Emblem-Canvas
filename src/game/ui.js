@@ -1,54 +1,50 @@
 // js/ui.js
 
-export function setupActionMenu(game) {
-  const actionMenu = document.getElementById('actionMenu');
-  const confirmMenu = document.getElementById('confirmMenu');
-  const btnAttackConfirm = document.getElementById('btnAttackConfirm');
-  const btnConfirm = document.getElementById('btnConfirm');
-  const btnCancel = document.getElementById('btnCancel');
+// Track current click handler per button so a re-wire (e.g. fallback path
+// creates a new Game) replaces the old handler instead of stacking.
+const _btnHandlers = new Map();
 
-  // Tombol Move
-  document.getElementById('btnMove').addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.activateMoveMode();
-  });
+function wireOne(id, handler) {
+  const btn = document.getElementById(id);
+  if (!btn) return false;
+  const prev = _btnHandlers.get(id);
+  if (prev) btn.removeEventListener('click', prev);
+  btn.addEventListener('click', handler);
+  _btnHandlers.set(id, handler);
+  return true;
+}
 
-  // Tombol Wait (Action Menu)
-  document.getElementById('btnWait').addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.wait();
-  });
+const ACTION_BUTTONS = [
+  'btnMove', 'btnWait', 'btnAttack', 'btnMagic',
+  'btnConfirm', 'btnAttackConfirm', 'btnMagicConfirm', 'btnCancel',
+];
 
-  // Tombol Attack (Action Menu)
-  document.getElementById('btnAttack').addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.activateAttackMode('physical');
-  });
+function buildHandlers(game) {
+  return {
+    btnMove: () => game.actionSystem?.activateMoveMode(),
+    btnWait: () => game.actionSystem?.wait(),
+    btnAttack: () => game.actionSystem?.activateAttackMode('physical'),
+    btnMagic: () => game.actionSystem?.activateAttackMode('magic'),
+    btnConfirm: () => game.actionSystem?.wait(),
+    btnAttackConfirm: () => game.actionSystem?.activateAttackMode('physical'),
+    btnMagicConfirm: () => game.actionSystem?.activateAttackMode('magic'),
+    btnCancel: () => game.actionSystem?.cancelAction(),
+  };
+}
 
-  // Tombol Magic (Action Menu)
-  document.getElementById('btnMagic').addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.activateAttackMode('magic');
-  });
-
-  // Tombol Confirm (Wait in Confirm Menu)
-  btnConfirm.addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.wait();
-  });
-
-  // Tombol Attack Confirm (Attack from new position)
-  btnAttackConfirm.addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.activateAttackMode('physical');
-  });
-
-  // Tombol Magic Confirm
-  const btnMagicConfirm = document.getElementById('btnMagicConfirm');
-  if (btnMagicConfirm) {
-    btnMagicConfirm.addEventListener('click', () => {
-      if (game.actionSystem) game.actionSystem.activateAttackMode('magic');
-    });
+// Defers wiring until the StaticUI buttons are in DOM. Useful when called
+// during async init paths where React's render may not yet be committed.
+export function setupActionMenu(game, attempt = 0) {
+  const handlers = buildHandlers(game);
+  const allWired = ACTION_BUTTONS.every(id => wireOne(id, handlers[id]));
+  if (allWired) return;
+  // Some buttons missing — retry on next frame, up to ~10 frames (~150ms)
+  if (attempt < 10) {
+    requestAnimationFrame(() => setupActionMenu(game, attempt + 1));
+  } else {
+    const missing = ACTION_BUTTONS.filter(id => !document.getElementById(id));
+    console.warn('[ui] setupActionMenu gave up after retries — missing:', missing);
   }
-
-  // Tombol Cancel
-  btnCancel.addEventListener('click', () => {
-    if (game.actionSystem) game.actionSystem.cancelAction();
-  });
 }
 
 export function updateProfileStatus(unit) {
@@ -346,4 +342,182 @@ export function showExpSummary({
   // Auto-dismiss
   const autoMs = hasLevelUp ? 3500 : 2200;
   _expSummaryTimer = setTimeout(dismiss, autoMs);
+}
+
+// =============================================================================
+// Compact victory banner — slides down from top, holds briefly, fades.
+// Used at the start of the victory cinematic.
+// =============================================================================
+
+let _bannerTimer = null;
+
+export function showVictoryBanner({ stageName, bonusExp }) {
+  const el = document.getElementById('victoryBanner');
+  if (!el) return;
+
+  if (_bannerTimer) clearTimeout(_bannerTimer);
+
+  const exp = document.getElementById('vbExpText');
+  if (exp) {
+    const stage = stageName ? `${stageName} · ` : '';
+    exp.textContent = `${stage}+${bonusExp} EXP BONUS`;
+  }
+
+  el.classList.remove('fadeOut');
+  void el.offsetWidth;
+  requestAnimationFrame(() => el.classList.add('active'));
+
+  _bannerTimer = setTimeout(() => {
+    el.classList.remove('active');
+    el.classList.add('fadeOut');
+    setTimeout(() => el.classList.remove('fadeOut'), 320);
+    _bannerTimer = null;
+  }, 1300);
+}
+
+// =============================================================================
+// (Legacy) Victory Bonus Summary — full-modal, retained for reference.
+// =============================================================================
+
+let _victoryDismiss = null;
+let _victoryTimer = null;
+
+export function showVictoryBonus({ stageName, heroResults, onClose }) {
+  const overlay = document.getElementById('victoryBonus');
+  if (!overlay) {
+    onClose?.();
+    return;
+  }
+
+  if (_victoryTimer) clearTimeout(_victoryTimer);
+  if (_victoryDismiss) _victoryDismiss();
+
+  setText('victoryStageName', stageName || 'Stage Cleared');
+
+  const list = document.getElementById('victoryHeroList');
+  if (list) {
+    list.innerHTML = '';
+    heroResults.forEach((res, i) => {
+      const card = document.createElement('div');
+      card.className = 'victoryHeroCard';
+      if (res.levelUps?.length) card.classList.add('hasLevelUp');
+      card.style.animationDelay = `${0.15 + i * 0.08}s`;
+
+      // Portrait
+      const portrait = document.createElement('div');
+      portrait.className = 'victoryHeroPortrait';
+      if (res.hero.portraitUrl) {
+        const img = document.createElement('img');
+        img.src = res.hero.portraitUrl;
+        img.alt = '';
+        portrait.appendChild(img);
+      }
+      card.appendChild(portrait);
+
+      // Info
+      const info = document.createElement('div');
+      info.className = 'victoryHeroInfo';
+
+      const nameRow = document.createElement('div');
+      nameRow.className = 'victoryHeroNameRow';
+      const name = document.createElement('span');
+      name.className = 'victoryHeroName';
+      name.textContent = res.hero.name;
+      nameRow.appendChild(name);
+      const lvBadge = document.createElement('span');
+      lvBadge.className = 'victoryHeroLv';
+      lvBadge.textContent = `LV ${String(res.hero.level).padStart(2, '0')}`;
+      nameRow.appendChild(lvBadge);
+      info.appendChild(nameRow);
+
+      const expRow = document.createElement('div');
+      expRow.className = 'victoryHeroExpRow';
+      expRow.innerHTML = `<span class="victoryHeroExpLabel">+ EXP</span><span class="victoryHeroExpValue">+${res.expGained}</span>`;
+      info.appendChild(expRow);
+
+      if (res.levelUps?.length) {
+        const lvBlock = document.createElement('div');
+        lvBlock.className = 'victoryHeroLvBlock';
+        const lvHeader = document.createElement('div');
+        lvHeader.className = 'victoryHeroLvHeader';
+        const lvCount = res.levelUps.length;
+        lvHeader.innerHTML = `<span class="lvBadge">★</span> LEVEL UP${lvCount > 1 ? ` ×${lvCount}` : ''}`;
+        lvBlock.appendChild(lvHeader);
+
+        // Aggregate gains
+        const total = { hp: 0, atk: 0, spd: 0, def: 0, res: 0 };
+        res.levelUps.forEach(lu => {
+          if (!lu.gains) return;
+          total.hp += lu.gains.hp || 0;
+          total.atk += lu.gains.atk || 0;
+          total.spd += lu.gains.spd || 0;
+          total.def += lu.gains.def || 0;
+          total.res += lu.gains.res || 0;
+        });
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'victoryStatChips';
+        const order = [
+          { k: 'hp', l: 'HP', c: '#7adf8d' },
+          { k: 'atk', l: 'ATK', c: '#ff6b73' },
+          { k: 'def', l: 'DEF', c: '#9d8aff' },
+          { k: 'spd', l: 'SPD', c: '#5cb8ff' },
+          { k: 'res', l: 'RES', c: '#ffb84d' },
+        ];
+        order.forEach(s => {
+          if (!total[s.k]) return;
+          const chip = document.createElement('span');
+          chip.className = 'victoryStatChip';
+          chip.style.setProperty('--chip-color', s.c);
+          chip.innerHTML = `<span class="chipLabel">${s.l}</span><span class="chipPlus">+${total[s.k]}</span>`;
+          chipsWrap.appendChild(chip);
+        });
+        if (chipsWrap.children.length === 0) {
+          const none = document.createElement('span');
+          none.className = 'victoryStatChip neutral';
+          none.textContent = 'No stat gain';
+          chipsWrap.appendChild(none);
+        }
+        lvBlock.appendChild(chipsWrap);
+        info.appendChild(lvBlock);
+      }
+
+      card.appendChild(info);
+      list.appendChild(card);
+    });
+  }
+
+  overlay.classList.remove('fadeOut');
+  void overlay.offsetWidth;
+  requestAnimationFrame(() => overlay.classList.add('active'));
+  if (typeof window !== 'undefined') window.gameOverlayActive = true;
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    overlay.classList.remove('active');
+    overlay.classList.add('fadeOut');
+    overlay.removeEventListener('click', dismiss);
+    overlay.removeEventListener('pointerdown', dismiss);
+    if (_victoryTimer) {
+      clearTimeout(_victoryTimer);
+      _victoryTimer = null;
+    }
+    setTimeout(() => {
+      overlay.classList.remove('fadeOut');
+      // overlay stays hidden via classes; gameOverlayActive remains true if cinematic continues
+      onClose?.();
+    }, 380);
+  };
+  _victoryDismiss = dismiss;
+
+  setTimeout(() => {
+    overlay.addEventListener('click', dismiss);
+    overlay.addEventListener('pointerdown', dismiss);
+  }, 700);
+
+  // Auto-dismiss after a generous pause (4–5s scaled by hero count)
+  const baseMs = 3200;
+  const perHeroMs = 350;
+  _victoryTimer = setTimeout(dismiss, baseMs + perHeroMs * heroResults.length);
 }
