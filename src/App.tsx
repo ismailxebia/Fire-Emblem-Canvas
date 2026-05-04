@@ -1,6 +1,6 @@
 import React, { Suspense, useState } from 'react';
 import GameComponent from './components/Game';
-import MainMenu from './components/MainMenu';
+import HomeHub from './components/HomeHub';
 import './App.css';
 
 // Lazy-load studio so it never enters the game bundle
@@ -28,7 +28,7 @@ function App() {
   }
 
   if (view === 'menu') {
-    return <MainMenu onStartBattle={() => setView('game')} />;
+    return <HomeHub onStartBattle={() => setView('game')} />;
   }
 
   return (
