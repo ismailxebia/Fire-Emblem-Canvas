@@ -7,6 +7,8 @@ import { Haptics, ImpactStyle } from '../game/utils/haptics.js';
 import { audio } from '../game/audio/AudioManager';
 import SettingsModal from './SettingsModal';
 import StageSelect, { type StageEntry } from './StageSelect';
+import AlliesPanel from './AlliesPanel';
+import SummonPanel from './SummonPanel';
 import heroesData from '../game/data/heroes.json';
 
 interface HomeHubProps {
@@ -92,6 +94,8 @@ const HomeHub: React.FC<HomeHubProps> = ({ onStartBattle }) => {
     const [exiting, setExiting] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [stageSelectOpen, setStageSelectOpen] = useState(false);
+    const [alliesOpen, setAlliesOpen] = useState(false);
+    const [summonOpen, setSummonOpen] = useState(false);
     const [tab, setTab] = useState<Tab>('home');
     const [toast, setToast] = useState<string | null>(null);
 
@@ -210,7 +214,7 @@ const HomeHub: React.FC<HomeHubProps> = ({ onStartBattle }) => {
                 <button
                     type="button"
                     className={`hub-nav-btn ${tab === 'allies' ? 'active' : ''}`}
-                    onClick={() => onTabClick('allies', () => showToast('Allies — coming soon'))}
+                    onClick={() => onTabClick('allies', () => setAlliesOpen(true))}
                 >
                     <span className="hub-nav-icon">⚑</span>
                     <span className="hub-nav-label">Allies</span>
@@ -219,7 +223,7 @@ const HomeHub: React.FC<HomeHubProps> = ({ onStartBattle }) => {
                 <button
                     type="button"
                     className={`hub-nav-btn ${tab === 'summon' ? 'active' : ''}`}
-                    onClick={() => onTabClick('summon', () => showToast('Summon — coming soon'))}
+                    onClick={() => onTabClick('summon', () => setSummonOpen(true))}
                 >
                     <span className="hub-nav-icon">✦</span>
                     <span className="hub-nav-label">Summon</span>
@@ -257,6 +261,8 @@ const HomeHub: React.FC<HomeHubProps> = ({ onStartBattle }) => {
                 onClose={() => setStageSelectOpen(false)}
                 onSelect={onStageSelected}
             />
+            <AlliesPanel open={alliesOpen} onClose={() => setAlliesOpen(false)} />
+            <SummonPanel open={summonOpen} onClose={() => setSummonOpen(false)} />
         </div>
     );
 };

@@ -11,11 +11,13 @@ export interface StageEntry {
     num: number;
     name: string;
     sub: string;
-    diff: number;       // 1..5
+    diff: number;
     stamina: number;
     locked: boolean;
     boss?: boolean;
     bgUrl?: string;
+    /** Stage theme tint — used for accent stripe + colored gradient wash */
+    theme: string;
 }
 
 export const STAGES: StageEntry[] = [
@@ -28,11 +30,12 @@ export const STAGES: StageEntry[] = [
         stamina: 8,
         locked: false,
         bgUrl: 'https://ik.imagekit.io/ij05ikv7z/Hero/HD%20Back.png',
+        theme: '#7ad6a8',
     },
-    { id: 'stage02', num: 2, name: 'Frostpeak Outpost',  sub: 'Snowy Mountains', diff: 2, stamina: 10, locked: true },
-    { id: 'stage03', num: 3, name: 'Ember Hollow',       sub: 'Volcanic Cave',   diff: 3, stamina: 12, locked: true },
-    { id: 'stage04', num: 4, name: 'Whispering Woods',   sub: 'Ancient Forest',  diff: 3, stamina: 14, locked: true },
-    { id: 'stage05', num: 5, name: 'The Shattered Spire', sub: 'Boss Battle',    diff: 5, stamina: 20, locked: true, boss: true },
+    { id: 'stage02', num: 2, name: 'Frostpeak Outpost',   sub: 'Snowy Mountains', diff: 2, stamina: 10, locked: true, theme: '#9bb8ff' },
+    { id: 'stage03', num: 3, name: 'Ember Hollow',        sub: 'Volcanic Cave',   diff: 3, stamina: 12, locked: true, theme: '#ff9b6e' },
+    { id: 'stage04', num: 4, name: 'Whispering Woods',    sub: 'Ancient Forest',  diff: 3, stamina: 14, locked: true, theme: '#c89bff' },
+    { id: 'stage05', num: 5, name: 'The Shattered Spire', sub: 'Boss Battle',     diff: 5, stamina: 20, locked: true, boss: true, theme: '#ff7a6e' },
 ];
 
 interface StageSelectProps {
@@ -89,25 +92,27 @@ const StageSelect: React.FC<StageSelectProps> = ({ open, onClose, onSelect }) =>
                             className={`stage-card ${s.locked ? 'locked' : ''} ${s.boss ? 'boss' : ''}`}
                             onClick={() => handlePick(s)}
                             disabled={s.locked}
+                            style={{ ['--theme' as any]: s.theme }}
                         >
-                            <div
-                                className="stage-card-bg"
-                                style={{
-                                    backgroundImage: s.bgUrl ? `url("${s.bgUrl}")` : undefined,
-                                }}
-                                aria-hidden="true"
-                            />
-                            <div className="stage-card-shade" aria-hidden="true" />
+                            <span className="stage-card-accent" aria-hidden="true" />
 
-                            <div className="stage-card-num" aria-hidden="true">
-                                <span className="stage-card-num-label">CH</span>
-                                <span className="stage-card-num-val">{String(s.num).padStart(2, '0')}</span>
-                            </div>
+                            {s.bgUrl && (
+                                <span
+                                    className="stage-card-thumb"
+                                    style={{ backgroundImage: `url("${s.bgUrl}")` }}
+                                    aria-hidden="true"
+                                />
+                            )}
 
-                            <div className="stage-card-body">
-                                <div className="stage-card-sub">{s.sub}</div>
-                                <div className="stage-card-name">{s.name}</div>
-                                <div className="stage-card-meta">
+                            <span className="stage-card-badge" aria-hidden="true">
+                                <span className="stage-card-badge-kicker">CH</span>
+                                <span className="stage-card-badge-num">{String(s.num).padStart(2, '0')}</span>
+                            </span>
+
+                            <span className="stage-card-body">
+                                <span className="stage-card-sub">{s.sub}</span>
+                                <span className="stage-card-name">{s.name}</span>
+                                <span className="stage-card-meta">
                                     <span className="stage-diff" aria-label={`Difficulty ${s.diff} of 5`}>
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <span key={i} className={`stage-diff-pip ${i < s.diff ? 'on' : ''}`}>★</span>
@@ -116,26 +121,18 @@ const StageSelect: React.FC<StageSelectProps> = ({ open, onClose, onSelect }) =>
                                     <span className="stage-stamina">
                                         <span className="stage-stamina-icon">⟁</span>{s.stamina}
                                     </span>
-                                </div>
-                            </div>
+                                </span>
+                            </span>
 
-                            {s.locked ? (
-                                <div className="stage-card-lock" aria-hidden="true">
-                                    <span className="stage-lock-icon">⛌</span>
-                                    <span className="stage-lock-text">Locked</span>
-                                </div>
-                            ) : (
-                                <div className="stage-card-go" aria-hidden="true">
-                                    <span className="stage-go-arrow">▸</span>
-                                </div>
-                            )}
+                            <span className={`stage-card-cta ${s.locked ? 'locked' : ''}`} aria-hidden="true">
+                                {s.locked ? '⛌' : '▸'}
+                            </span>
 
                             {s.boss && <span className="stage-card-tag">BOSS</span>}
                         </button>
                     ))}
                 </div>
 
-                <button type="button" className="stage-back" onClick={onClose}>← Back</button>
             </div>
         </div>
     );

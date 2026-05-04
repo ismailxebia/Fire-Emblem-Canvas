@@ -196,6 +196,7 @@ CREATE TABLE player_units (
     
     -- Status
     is_favorite BOOLEAN DEFAULT FALSE,
+    formation_slot INT DEFAULT NULL,
     acquired_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     UNIQUE(player_id, unit_id)

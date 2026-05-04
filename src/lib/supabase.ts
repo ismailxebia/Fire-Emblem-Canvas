@@ -276,3 +276,62 @@ export async function updatePlayerUnit(
     }
     return data;
 }
+
+/**
+ * Update player's formation (assign a unit to a specific slot)
+ */
+export async function updatePlayerUnitFormation(
+    playerId: string,
+    unitId: string,
+    slotIndex: number | null
+) {
+    // First, if slotIndex is not null, we might want to clear the existing unit in that slot
+    if (slotIndex !== null) {
+        await supabase
+            .from('player_units')
+            .update({ formation_slot: null })
+            .eq('player_id', playerId)
+            .eq('formation_slot', slotIndex);
+    }
+
+    const { data, error } = await supabase
+        .from('player_units')
+        .update({ formation_slot: slotIndex })
+        .eq('player_id', playerId)
+        .eq('unit_id', unitId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating formation slot:', error);
+        return null;
+    }
+    return data;
+}
+
+/**
+ * Get player's active formation
+ */
+export async function fetchPlayerFormation(playerId: string) {
+    const { data, error } = await supabase
+        .from('player_units')
+        .select(`
+      *,
+      units (
+        name,
+        unit_type,
+        sprite_url,
+        portrait_url,
+        magic_skill_id
+      )
+    `)
+        .eq('player_id', playerId)
+        .not('formation_slot', 'is', null)
+        .order('formation_slot');
+
+    if (error) {
+        console.error('Error fetching player formation:', error);
+        return [];
+    }
+    return data;
+}
