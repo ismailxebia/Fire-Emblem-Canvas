@@ -1,5 +1,6 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import GameComponent from './components/Game';
+import MainMenu from './components/MainMenu';
 import './App.css';
 
 // Lazy-load studio so it never enters the game bundle
@@ -12,8 +13,12 @@ function isStudioRoute(): boolean {
   return path.startsWith('/studio') || hash === '#studio' || hash.startsWith('#/studio');
 }
 
+type View = 'menu' | 'game';
+
 function App() {
   const studio = isStudioRoute();
+  const [view, setView] = useState<View>('menu');
+
   if (studio) {
     return (
       <Suspense fallback={<div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>Loading studio…</div>}>
@@ -21,6 +26,11 @@ function App() {
       </Suspense>
     );
   }
+
+  if (view === 'menu') {
+    return <MainMenu onStartBattle={() => setView('game')} />;
+  }
+
   return (
     <div className="App">
       <GameComponent />

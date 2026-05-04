@@ -1,0 +1,30 @@
+# Vite emits hashed filenames for these — safe to cache forever
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Game/PWA assets — long cache, but still allow re-fetch on filename change
+/*.png
+  Cache-Control: public, max-age=86400, must-revalidate
+/*.jpg
+  Cache-Control: public, max-age=86400, must-revalidate
+/*.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML — never cache aggressively, must always check for new build
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Manifest needs to be fetchable when changed
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/manifest+json
+
+# Security headers
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

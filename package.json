@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:build": "bash scripts/build-apk.sh",
+    "android:install": "bash scripts/install-apk.sh",
+    "android:open": "bash scripts/open-android-studio.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
@@ -16,6 +19,8 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/haptics": "^8.0.2",
     "@supabase/supabase-js": "^2.89.0",
+    "@types/howler": "^2.2.12",
+    "howler": "^2.2.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
