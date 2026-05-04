@@ -4,6 +4,8 @@
 import { useEffect, useState, useCallback } from 'react';
 // @ts-ignore — JS module
 import { Haptics, ImpactStyle } from '../game/utils/haptics.js';
+import { audio } from '../game/audio/AudioManager';
+import SettingsModal from './SettingsModal';
 
 interface MenuItem {
     id: string;
@@ -22,6 +24,13 @@ const APP_VERSION = '0.1.0';
 const MainMenu: React.FC<MainMenuProps> = ({ onStartBattle }) => {
     const [exiting, setExiting] = useState(false);
     const [activeIdx, setActiveIdx] = useState(0);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+
+    // Start menu BGM (deferred until first user gesture by AudioManager)
+    useEffect(() => {
+        audio.playBgm('menu');
+        return () => { /* keep playing — Game will crossfade */ };
+    }, []);
 
     const items: MenuItem[] = [
         {
@@ -31,6 +40,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onStartBattle }) => {
             enabled: true,
             onSelect: () => {
                 Haptics.impact(ImpactStyle.Medium);
+                audio.playSfx('menuConfirm');
                 setExiting(true);
                 setTimeout(() => onStartBattle(), 480);
             },
@@ -43,6 +53,17 @@ const MainMenu: React.FC<MainMenuProps> = ({ onStartBattle }) => {
             onSelect: () => { },
         },
         {
+            id: 'settings',
+            label: 'Settings',
+            sublabel: 'Audio · controls',
+            enabled: true,
+            onSelect: () => {
+                Haptics.impact(ImpactStyle.Light);
+                audio.playSfx('uiTap');
+                setSettingsOpen(true);
+            },
+        },
+        {
             id: 'credits',
             label: 'Credits',
             sublabel: 'Genoflow Demo',
@@ -53,8 +74,9 @@ const MainMenu: React.FC<MainMenuProps> = ({ onStartBattle }) => {
 
     const handleHover = useCallback((idx: number) => {
         if (!items[idx]?.enabled) return;
+        if (idx !== activeIdx) audio.playSfx('uiHover');
         setActiveIdx(idx);
-    }, [items]);
+    }, [items, activeIdx]);
 
     // Allow keyboard nav for desktop testing
     useEffect(() => {
@@ -177,6 +199,8 @@ const MainMenu: React.FC<MainMenuProps> = ({ onStartBattle }) => {
                 <span className="mm-version">v{APP_VERSION}</span>
                 <span className="mm-tag">Genoflow Demo</span>
             </div>
+
+            <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </div>
     );
 };

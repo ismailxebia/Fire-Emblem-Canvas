@@ -11,6 +11,10 @@
 
 import { showVictoryBanner } from '../ui.js';
 
+function _audio() {
+    return (typeof window !== 'undefined' && window.__audio) ? window.__audio : null;
+}
+
 // Camera state during cinematic
 const ZOOM_SCALE = 1.22;
 const SKEW_X = 0.06;
@@ -79,6 +83,13 @@ export class VictorySequence {
             stageName: stageName || this.game.stageData?.battleName || 'Stage Cleared',
             bonusExp: BONUS_EXP,
         });
+
+        // Audio: play victory sting and crossfade to victory BGM (if exists)
+        const a = _audio();
+        if (a) {
+            a.playSfx('victorySting');
+            a.playBgm('victory', 600);
+        }
 
         this.phase = 'banner';
     }
@@ -222,6 +233,9 @@ export class VictorySequence {
         if (overlay) overlay.classList.remove('active');
         const base = document.getElementById('baseMenu');
         if (base) base.classList.add('active');
+        // Crossfade back to menu BGM in the base camp
+        const a = _audio();
+        if (a) a.playBgm('menu', 1000);
     }
 
     _finish() {

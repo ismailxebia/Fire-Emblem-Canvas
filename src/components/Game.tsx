@@ -5,6 +5,7 @@ import Game from '../game/game.js';
 import { setupActionMenu } from '../game/ui.js';
 import { createGame } from '../game/gameFactory';
 import { supabase } from '../lib/supabase';
+import { audio } from '../game/audio/AudioManager';
 
 const GameComponent: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -340,6 +341,7 @@ const GameComponent: React.FC = () => {
                 setLoadingProgress(100);
                 setLoadingMessage('Ready');
                 startGameLoop();
+                audio.playBgm('battle', 1200);  // crossfade from menu BGM
                 setTimeout(() => setIsLoading(false), 400);
 
             } catch (error) {
@@ -354,6 +356,7 @@ const GameComponent: React.FC = () => {
 
                 setLoadingProgress(100);
                 startGameLoop();
+                audio.playBgm('battle', 1200);
                 setTimeout(() => setIsLoading(false), 400);
             }
         };

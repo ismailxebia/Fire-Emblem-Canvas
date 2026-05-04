@@ -3,6 +3,13 @@ import { updateProfileStatus, showExpSummary } from '../ui.js';
 import { Haptics, ImpactStyle } from '../utils/haptics.js';
 import { positionMenuNearUnitDeferred, positionMenuAtCanvasBottomCenterDeferred } from '../utils/menuPosition.js';
 
+// Lightweight audio access — uses window.__audio set by AudioManager.
+function sfx(id, opts) {
+    if (typeof window !== 'undefined' && window.__audio) {
+        window.__audio.playSfx(id, opts);
+    }
+}
+
 export const ActionState = {
     IDLE: 'IDLE',
     HERO_SELECTED: 'HERO_SELECTED',
@@ -311,25 +318,30 @@ export class ActionSystem {
             target.health = Math.max(0, target.health - damage);
             this._spawnDamagePopup(target, damage);
             Haptics.impact(damage > 0 ? ImpactStyle.Medium : ImpactStyle.Light);
+            // Hit / miss sound — slight pitch variation for variety
+            if (damage <= 0) {
+                sfx('miss');
+            } else {
+                const big = damage >= 25;
+                sfx(big ? 'attackHeavy' : 'attackHit', { rate: 0.95 + Math.random() * 0.1 });
+            }
 
             if (counterDamage !== null && target.health > 0) {
                 hero.health = Math.max(0, hero.health - counterDamage);
                 this._spawnDamagePopup(hero, counterDamage, { delay: 350 });
+                setTimeout(() => sfx('attackHit', { rate: 0.9 }), 360);
             }
 
             updateProfileStatus(hero);
             updateProfileStatus(target);
 
             // ===== EXP / Level up =====
-            // Only heroes gain exp, only on hero attacks
             const expEvents = { hits: [], levelUps: [] };
             if (this.game.battle.heroes.includes(hero) && typeof hero.gainExp === 'function' && damage > 0) {
-                // Base exp for connecting an attack
                 const hit = hero.gainExp(10);
                 expEvents.hits.push({ amount: 10, source: 'attack' });
                 if (hit?.levelUps?.length) expEvents.levelUps.push(...hit.levelUps);
 
-                // Bonus exp for kill, scaled by level diff
                 if (target.health <= 0) {
                     const lvDiff = (target.level || 1) - (hero.level || 1);
                     const killExp = Math.max(15, 30 + lvDiff * 3);
@@ -343,11 +355,20 @@ export class ActionSystem {
                 Haptics.impact(ImpactStyle.Heavy);
                 target.startDeath();
                 this.game.battle.invalidateSpatialIndex();
+                setTimeout(() => sfx('death'), 200);
             }
             if (hero.health <= 0) {
                 Haptics.impact(ImpactStyle.Heavy);
                 hero.startDeath();
                 this.game.battle.invalidateSpatialIndex();
+                setTimeout(() => sfx('death'), 200);
+            }
+
+            // Level up sting takes priority over generic exp gain ping
+            if (expEvents.levelUps.length > 0) {
+                setTimeout(() => sfx('levelUp'), 350);
+            } else if (expEvents.hits.length > 0) {
+                setTimeout(() => sfx('expGain'), 250);
             }
 
             const totalExp = expEvents.hits.reduce((s, h) => s + h.amount, 0);
@@ -410,6 +431,7 @@ export class ActionSystem {
         if (this.state === ActionState.IDLE) return false;
         this.reset();
         Haptics.impact(ImpactStyle.Light);
+        sfx('uiCancel');
         return true;
     }
 

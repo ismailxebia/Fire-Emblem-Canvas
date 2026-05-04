@@ -1,5 +1,12 @@
 // js/ui.js
 
+// Lightweight audio access — uses window.__audio set by AudioManager.
+function _sfx(id, opts) {
+  if (typeof window !== 'undefined' && window.__audio) {
+    window.__audio.playSfx(id, opts);
+  }
+}
+
 // Track current click handler per button so a re-wire (e.g. fallback path
 // creates a new Game) replaces the old handler instead of stacking.
 const _btnHandlers = new Map();
@@ -123,6 +130,7 @@ export function showTurnOverlay(text) {
 
   requestAnimationFrame(() => {
     overlay.classList.add('active');
+    _sfx('turnBanner');
   });
 
   setTimeout(() => {

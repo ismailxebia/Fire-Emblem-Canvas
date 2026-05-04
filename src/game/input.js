@@ -171,9 +171,14 @@ export function handleInput(game) {
     const col = Math.floor((x + game.camera.x - game.grid.padding) / game.grid.tileSize);
     const row = Math.floor((y + game.camera.y - game.grid.padding) / game.grid.tileSize);
 
-    // Light haptic on tap that hits a unit
+    // Light haptic + tap SFX on tap that hits a unit
     const tapped = game.battle.getUnitAt(col, row);
-    if (tapped) Haptics.impact(ImpactStyle.Light);
+    if (tapped) {
+      Haptics.impact(ImpactStyle.Light);
+      if (typeof window !== 'undefined' && window.__audio) {
+        window.__audio.playSfx('uiTap');
+      }
+    }
 
     if (game.actionSystem) {
       game.actionSystem.handleTileClick(col, row);
